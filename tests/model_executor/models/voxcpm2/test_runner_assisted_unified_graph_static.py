@@ -180,12 +180,13 @@ def test_voxcpm2_scheduler_policy_stays_model_local():
     assert "VoxCPM2TalkerForConditionalGeneration" not in common_source
     assert "voxcpm2_runtime_config" not in common_source
     assert "pure_decode_graph" not in common_source
-    assert "_schedule_with_optional_waiting_deferral" in common_source
+    assert "_schedule_with_optional_waiting_deferral" not in common_source
 
     assert "class VoxCPM2OmniARAsyncScheduler(OmniARAsyncScheduler)" in voxcpm2_scheduler_source
     assert "voxcpm2_runtime_config" in voxcpm2_scheduler_source
     assert "_should_defer_waiting_for_unified_decode_graph" in voxcpm2_scheduler_source
-    assert "self._schedule_with_optional_waiting_deferral(" in voxcpm2_scheduler_source
+    assert "create_request_queue(self.policy)" in voxcpm2_scheduler_source
+    assert "original_waiting.prepend_requests(deferred_waiting)" in voxcpm2_scheduler_source
     assert "vllm_omni.model_executor.models.voxcpm2.scheduler.VoxCPM2OmniARAsyncScheduler" in pipeline_source
 
 
