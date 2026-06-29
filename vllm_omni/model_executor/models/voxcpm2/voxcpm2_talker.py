@@ -58,17 +58,6 @@ _ENABLE_NVTX_PROFILE = False
 _ACTIVE_STATE_LEAK_WARN_MIN = 512
 
 
-class _TokenizerLike(Protocol):
-    bos_token_id: int
-    unk_token_id: int
-
-    def encode(self, text: str, add_special_tokens: bool = True) -> list[int]: ...
-
-    def get_vocab(self) -> dict[str, int]: ...
-
-    def convert_tokens_to_ids(self, tokens: list[str]) -> list[int]: ...
-
-
 class _VoxCPM2PromptConfigLike(Protocol):
     audio_vae_config: dict[str, Any]
     patch_size: int
@@ -239,7 +228,7 @@ def is_cjk_char(c: str) -> bool:
     )
 
 
-def build_cjk_split_map(tokenizer: _TokenizerLike) -> dict[int, list[int]]:
+def build_cjk_split_map(tokenizer: Any) -> dict[int, list[int]]:
     """Build {multichar_cjk_token_id: [single_char_ids]} from tokenizer vocab."""
     vocab = tokenizer.get_vocab()
     split_map: dict[int, list[int]] = {}
@@ -266,7 +255,7 @@ def split_multichar_chinese(token_ids: list[int], split_map: dict[int, list[int]
 
 def build_voxcpm2_prompt(
     hf_config: _VoxCPM2PromptConfigLike,
-    tokenizer: _TokenizerLike,
+    tokenizer: Any,
     split_map: dict[int, list[int]],
     text: str,
     ref_audio: Sequence[float] | torch.Tensor | None = None,
@@ -1596,21 +1585,14 @@ class VoxCPM2TalkerForConditionalGeneration(nn.Module):
             return None
         return min((size for size in self._unified_graph_bucket_sizes if size >= batch_size), default=None)
 
-    def _parse_graph_pre_capture_sizes(
-        self,
-        raw: str,
-        *,
-        max_size: int,
-        allowed_sizes: frozenset[int] | None = None,
-        respect_capture_policy: bool = True,
-    ) -> tuple[int, ...]:
+    def _parse_unified_graph_pre_capture_sizes(self, raw: str) -> tuple[int, ...]:
+        max_size = min(self._max_batch_size, self._unified_decode_graph_max_batch_size)
         value = raw.strip().lower()
         if not value or value in {"0", "false", "none", "off"}:
             return ()
+
         if value in {"power2", "powers_of_two"}:
             candidates = [1 << i for i in range(max_size.bit_length())]
-        elif value == "policy":
-            candidates = list(range(1, max_size + 1))
         else:
             candidates = []
             for part in raw.split(","):
@@ -1622,22 +1604,8 @@ class VoxCPM2TalkerForConditionalGeneration(nn.Module):
                 except ValueError:
                     logger.warning("Ignoring invalid graph pre-capture size: %s", part)
 
-        sizes = {
-            size
-            for size in candidates
-            if 0 < size <= max_size
-            and (allowed_sizes is None or size in allowed_sizes)
-            and (not respect_capture_policy or self._should_use_decode_graph(size))
-        }
+        sizes = {size for size in candidates if 0 < size <= max_size and size in self._unified_graph_bucket_sizes}
         return tuple(sorted(sizes, reverse=True))
-
-    def _parse_unified_graph_pre_capture_sizes(self, raw: str) -> tuple[int, ...]:
-        return self._parse_graph_pre_capture_sizes(
-            raw,
-            max_size=min(self._max_batch_size, self._unified_decode_graph_max_batch_size),
-            allowed_sizes=self._unified_graph_bucket_sizes,
-            respect_capture_policy=False,
-        )
 
     def _capture_vae_graph(self, feat: torch.Tensor) -> _CapturedVAEGraph:
         batch_size = feat.shape[0]
