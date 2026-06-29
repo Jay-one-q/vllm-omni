@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import gc
 import threading
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import nullcontext
 from copy import copy
 from dataclasses import replace
@@ -42,10 +42,10 @@ from vllm.v1.worker.utils import is_residual_scattered_for_sp
 from vllm_omni.data_entry_keys import flatten_payload
 from vllm_omni.distributed.omni_connectors.kv_transfer_manager import OmniKVTransferManager
 from vllm_omni.outputs import OmniModelRunnerOutput
-from vllm_omni.runner_assisted_metadata import RunnerAssistedFullAttentionMetadataRequest
 from vllm_omni.utils.mm_outputs import build_mm_cpu, to_payload_element
 from vllm_omni.worker.gpu_model_runner import OmniGPUModelRunner
 from vllm_omni.worker.omni_connector_model_runner_mixin import OmniConnectorModelRunnerMixin
+from vllm_omni.worker.runner_assisted_metadata import RunnerAssistedFullAttentionMetadataRequest
 
 logger = init_logger(__name__)
 
@@ -590,11 +590,11 @@ class GPUARModelRunner(OmniGPUModelRunner, OmniConnectorModelRunnerMixin):
     def _get_runner_assisted_full_attention_metadata_request(
         self,
         *,
-        req_ids: list[str],
+        req_ids: Sequence[str],
         num_reqs: int,
         num_reqs_padded: int,
         num_scheduled_tokens_np: np.ndarray,
-        num_computed_tokens: list[int],
+        num_computed_tokens_cpu: torch.Tensor | np.ndarray,
         max_num_scheduled_tokens: int,
     ) -> RunnerAssistedFullAttentionMetadataRequest | None:
         # Models without this hook keep the normal runner path. VoxCPM2 uses
@@ -603,10 +603,13 @@ class GPUARModelRunner(OmniGPUModelRunner, OmniConnectorModelRunnerMixin):
         hook = getattr(self.model, "get_runner_assisted_full_attention_metadata_request", None)
         if not callable(hook):
             return None
+        num_computed_tokens = num_computed_tokens_cpu
+        if hasattr(num_computed_tokens, "numpy"):
+            num_computed_tokens = num_computed_tokens.numpy()
         request = hook(
             req_ids=req_ids,
             num_reqs=num_reqs,
-            num_scheduled_tokens=num_scheduled_tokens_np.tolist(),
+            num_scheduled_tokens=num_scheduled_tokens_np[:num_reqs],
             num_computed_tokens=num_computed_tokens,
             max_num_scheduled_tokens=max_num_scheduled_tokens,
         )
@@ -1111,27 +1114,25 @@ class GPUARModelRunner(OmniGPUModelRunner, OmniConnectorModelRunnerMixin):
             )
             num_tokens_padded = batch_desc.num_tokens
             num_reqs_padded = batch_desc.num_reqs if batch_desc.num_reqs is not None else num_reqs
-            num_computed_tokens_list = self.input_batch.num_computed_tokens_cpu[:num_reqs].tolist()
-            num_scheduled_tokens_list = num_scheduled_tokens_np[:num_reqs].tolist()
+            num_computed_tokens_cpu = self.input_batch.num_computed_tokens_cpu[:num_reqs]
 
             runner_assisted_full_attn_request = self._get_runner_assisted_full_attention_metadata_request(
-                req_ids=list(req_ids[:num_reqs]),
+                req_ids=req_ids[:num_reqs],
                 num_reqs=num_reqs,
                 num_reqs_padded=num_reqs_padded,
                 num_scheduled_tokens_np=num_scheduled_tokens_np,
-                num_computed_tokens=num_computed_tokens_list,
+                num_computed_tokens_cpu=num_computed_tokens_cpu,
                 max_num_scheduled_tokens=max_num_scheduled_tokens,
             )
-            runner_assisted_full_attn = runner_assisted_full_attn_request is not None
             runner_assisted_full_attn_capture = False
-            if runner_assisted_full_attn:
-                assert runner_assisted_full_attn_request is not None
+            if runner_assisted_full_attn_request is not None:
                 num_reqs_padded = runner_assisted_full_attn_request.num_reqs_padded
                 runner_assisted_full_attn_capture = runner_assisted_full_attn_request.for_cudagraph_capture
-                if max_num_scheduled_tokens == 1:
-                    num_tokens_padded = max(num_tokens_padded, num_reqs_padded)
-                else:
-                    num_tokens_padded = max(num_tokens_padded, num_reqs_padded * max_num_scheduled_tokens)
+                num_tokens_padded = max(
+                    num_tokens_padded,
+                    num_reqs_padded * max_num_scheduled_tokens,
+                )
+            runner_assisted_full_attn = runner_assisted_full_attn_request is not None
 
             ubatch_slices, ubatch_slices_padded = maybe_create_ubatch_slices(
                 should_ubatch,
@@ -1205,14 +1206,15 @@ class GPUARModelRunner(OmniGPUModelRunner, OmniConnectorModelRunnerMixin):
 
         # Let the model adjust inputs before forward (e.g. restore input_ids
         # for multimodal position detection, fix decode position offsets).
-        if hasattr(self.model, "prepare_runner_inputs"):
-            input_ids, positions = self.model.prepare_runner_inputs(
+        prepare_runner_inputs = getattr(self.model, "prepare_runner_inputs", None)
+        if callable(prepare_runner_inputs):
+            input_ids, positions = prepare_runner_inputs(
                 input_ids=input_ids,
                 positions=positions,
                 inputs_embeds=inputs_embeds,
                 req_ids=req_ids[:num_reqs],
-                num_computed_tokens=num_computed_tokens_list,
-                num_scheduled_tokens=num_scheduled_tokens_list,
+                num_computed_tokens=self.input_batch.num_computed_tokens_cpu[:num_reqs],
+                num_scheduled_tokens=num_scheduled_tokens_np[:num_reqs],
                 input_ids_buffer=self.input_ids.gpu[:num_tokens_padded],
             )
 
@@ -1269,8 +1271,9 @@ class GPUARModelRunner(OmniGPUModelRunner, OmniConnectorModelRunnerMixin):
                 )
 
                 # [Omni] Map pending ropes metadata to req_ids.
-                if hasattr(self.model, "flush_pending_metadata"):
-                    self.model.flush_pending_metadata(list(req_ids))
+                flush_pending_metadata = getattr(self.model, "flush_pending_metadata", None)
+                if callable(flush_pending_metadata):
+                    flush_pending_metadata(req_ids[:num_reqs])
         finally:
             if runner_assisted_context_enabled:
                 self._set_runner_assisted_full_attention_metadata_context(enabled=False)

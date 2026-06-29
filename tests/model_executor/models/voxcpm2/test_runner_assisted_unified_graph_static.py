@@ -10,7 +10,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 RUNNER = REPO_ROOT / "vllm_omni" / "worker" / "gpu_ar_model_runner.py"
-RUNNER_ASSISTED_METADATA = REPO_ROOT / "vllm_omni" / "runner_assisted_metadata.py"
+RUNNER_ASSISTED_METADATA = REPO_ROOT / "vllm_omni" / "worker" / "runner_assisted_metadata.py"
 TALKER = REPO_ROOT / "vllm_omni" / "model_executor" / "models" / "voxcpm2" / "voxcpm2_talker.py"
 VOXCPM2_PIPELINE = REPO_ROOT / "vllm_omni" / "model_executor" / "models" / "voxcpm2" / "pipeline.py"
 VOXCPM2_SCHEDULER = REPO_ROOT / "vllm_omni" / "model_executor" / "models" / "voxcpm2" / "scheduler.py"
@@ -41,7 +41,7 @@ def test_ar_runner_exposes_runner_assisted_full_metadata_hook():
     padding_source = padding_source[: padding_source.index("ubatch_slices, ubatch_slices_padded")]
     assert "runner_assisted_full_attn_request.num_reqs_padded" in padding_source
     assert "runner_assisted_full_attn_request.for_cudagraph_capture" in padding_source
-    assert "num_tokens_padded = max(num_tokens_padded, num_reqs_padded)" in padding_source
+    assert "num_reqs_padded * max_num_scheduled_tokens" in padding_source
 
 
 def test_ar_runner_without_model_hook_stays_on_normal_path():
@@ -61,6 +61,7 @@ def test_ar_runner_without_model_hook_stays_on_normal_path():
         compact_request_source
     )
     assert "ifnotcallable(hook):returnNone" in compact_request_source
+    assert ".tolist()" not in compact_request_source
     assert "isinstance(request,RunnerAssistedFullAttentionMetadataRequest)" in compact_request_source
     assert "request.num_reqs_padded" in request_source
     assert "request.for_cudagraph_capture" in request_source
@@ -181,12 +182,15 @@ def test_voxcpm2_scheduler_policy_stays_model_local():
     assert "voxcpm2_runtime_config" not in common_source
     assert "pure_decode_graph" not in common_source
     assert "_schedule_with_optional_waiting_deferral" not in common_source
+    assert "def _should_defer_waiting_admission(self) -> bool:" in common_source
 
     assert "class VoxCPM2OmniARAsyncScheduler(OmniARAsyncScheduler)" in voxcpm2_scheduler_source
     assert "voxcpm2_runtime_config" in voxcpm2_scheduler_source
     assert "_should_defer_waiting_for_unified_decode_graph" in voxcpm2_scheduler_source
-    assert "create_request_queue(self.policy)" in voxcpm2_scheduler_source
-    assert "original_waiting.prepend_requests(deferred_waiting)" in voxcpm2_scheduler_source
+    assert "def schedule(" not in voxcpm2_scheduler_source
+    assert "create_request_queue" not in voxcpm2_scheduler_source
+    assert "original_waiting.prepend_requests(deferred_waiting)" not in voxcpm2_scheduler_source
+    assert "return self._should_defer_waiting_for_unified_decode_graph()" in voxcpm2_scheduler_source
     assert "vllm_omni.model_executor.models.voxcpm2.scheduler.VoxCPM2OmniARAsyncScheduler" in pipeline_source
 
 

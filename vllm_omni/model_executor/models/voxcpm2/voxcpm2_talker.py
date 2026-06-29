@@ -38,12 +38,12 @@ from vllm.sequence import IntermediateTensors
 
 from vllm_omni.model_executor.models.output_templates import OmniOutput
 from vllm_omni.platforms import current_omni_platform
-from vllm_omni.runner_assisted_metadata import RunnerAssistedFullAttentionMetadataRequest
 from vllm_omni.utils.speaker_cache import (
     get_speaker_cache,
     iter_custom_voice_profiles,
     load_validated_profile_tensors,
 )
+from vllm_omni.worker.runner_assisted_metadata import RunnerAssistedFullAttentionMetadataRequest
 
 from .minicpm4_paged import MiniCPM4PagedForVoxCPM2, MiniCPM4PagedResidualLM
 from .voxcpm2_import_utils import import_voxcpm2_core
@@ -2070,10 +2070,10 @@ class VoxCPM2TalkerForConditionalGeneration(nn.Module):
     def get_runner_assisted_full_attention_metadata_request(
         self,
         *,
-        req_ids: list[str],
+        req_ids: Sequence[str],
         num_reqs: int,
-        num_scheduled_tokens: list[int],
-        num_computed_tokens: list[int],
+        num_scheduled_tokens: Sequence[int],
+        num_computed_tokens: Sequence[int],
         max_num_scheduled_tokens: int,
     ) -> RunnerAssistedFullAttentionMetadataRequest | None:
         if not self._enable_unified_decode_graph or not self._enable_cuda_graph:

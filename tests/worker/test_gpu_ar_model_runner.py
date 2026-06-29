@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from types import SimpleNamespace
 
 import numpy as np
@@ -5,12 +6,12 @@ import pytest
 import torch
 
 from vllm_omni.outputs import OmniModelRunnerOutput
-from vllm_omni.runner_assisted_metadata import RunnerAssistedFullAttentionMetadataRequest
 from vllm_omni.worker.gpu_ar_model_runner import (
     ExecuteModelState,
     GPUARModelRunner,
     OmniAsyncGPUModelRunnerOutput,
 )
+from vllm_omni.worker.runner_assisted_metadata import RunnerAssistedFullAttentionMetadataRequest
 
 pytestmark = [pytest.mark.core_model, pytest.mark.cpu]
 
@@ -69,7 +70,7 @@ def test_runner_assisted_full_attention_metadata_request_is_opt_in():
         num_reqs=2,
         num_reqs_padded=4,
         num_scheduled_tokens_np=np.array([1, 1], dtype=np.int32),
-        num_computed_tokens=[5, 6],
+        num_computed_tokens_cpu=np.array([5, 6], dtype=np.int32),
         max_num_scheduled_tokens=1,
     )
 
@@ -83,20 +84,20 @@ def test_runner_assisted_full_attention_metadata_request_and_context_hooks():
         def get_runner_assisted_full_attention_metadata_request(
             self,
             *,
-            req_ids: list[str],
+            req_ids: Sequence[str],
             num_reqs: int,
-            num_scheduled_tokens: list[int],
-            num_computed_tokens: list[int],
+            num_scheduled_tokens: Sequence[int],
+            num_computed_tokens: Sequence[int],
             max_num_scheduled_tokens: int,
         ) -> RunnerAssistedFullAttentionMetadataRequest:
             calls.append(
                 (
                     "request",
                     {
-                        "req_ids": req_ids,
+                        "req_ids": list(req_ids),
                         "num_reqs": num_reqs,
-                        "num_scheduled_tokens": num_scheduled_tokens,
-                        "num_computed_tokens": num_computed_tokens,
+                        "num_scheduled_tokens": [int(n) for n in num_scheduled_tokens],
+                        "num_computed_tokens": [int(n) for n in num_computed_tokens],
                         "max_num_scheduled_tokens": max_num_scheduled_tokens,
                     },
                 )
@@ -123,7 +124,7 @@ def test_runner_assisted_full_attention_metadata_request_and_context_hooks():
         num_reqs=2,
         num_reqs_padded=4,
         num_scheduled_tokens_np=np.array([1, 1], dtype=np.int32),
-        num_computed_tokens=[5, 6],
+        num_computed_tokens_cpu=np.array([5, 6], dtype=np.int32),
         max_num_scheduled_tokens=1,
     )
     context_enabled = runner._set_runner_assisted_full_attention_metadata_context(

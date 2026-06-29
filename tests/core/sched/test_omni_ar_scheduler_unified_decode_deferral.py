@@ -6,7 +6,6 @@ import pytest
 from vllm.v1.request import RequestStatus
 
 import vllm_omni.core.sched.omni_ar_scheduler as scheduler_mod
-import vllm_omni.model_executor.models.voxcpm2.scheduler as voxcpm2_scheduler_mod
 from vllm_omni.model_executor.models.voxcpm2.scheduler import VoxCPM2OmniARAsyncScheduler
 
 pytestmark = [pytest.mark.core_model, pytest.mark.cpu]
@@ -99,7 +98,7 @@ def test_unified_decode_graph_deferral_restores_waiting_queue(monkeypatch) -> No
     scheduler.input_coordinator = None
     scheduler._consume_pending_connector_output = lambda model_mode: None
 
-    monkeypatch.setattr(voxcpm2_scheduler_mod, "create_request_queue", lambda _policy: _MockQueue())
+    monkeypatch.setattr(scheduler_mod, "create_request_queue", lambda _policy: _MockQueue())
 
     def fake_upstream_schedule(self):
         assert self.waiting is not original_waiting
