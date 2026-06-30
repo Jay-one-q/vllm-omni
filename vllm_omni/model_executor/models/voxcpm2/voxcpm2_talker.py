@@ -426,11 +426,17 @@ class _UnifiedDecodeGraphStats:
     captures: int = 0
     replays: int = 0
     skips: dict[str, int] = dataclasses.field(default_factory=dict)
+    real_batch_sizes: dict[int, int] = dataclasses.field(default_factory=dict)
+    graph_bucket_sizes: dict[int, int] = dataclasses.field(default_factory=dict)
     logged_replays: int = 0
     logged_skips: int = 0
 
     def record_skip(self, reason: str) -> None:
         self.skips[reason] = self.skips.get(reason, 0) + 1
+
+    def record_replay_batch(self, *, real_batch_size: int, graph_bucket_size: int) -> None:
+        self.real_batch_sizes[real_batch_size] = self.real_batch_sizes.get(real_batch_size, 0) + 1
+        self.graph_bucket_sizes[graph_bucket_size] = self.graph_bucket_sizes.get(graph_bucket_size, 0) + 1
 
     @property
     def total_skips(self) -> int:
@@ -1904,10 +1910,12 @@ class VoxCPM2TalkerForConditionalGeneration(nn.Module):
         stats.logged_replays = stats.replays
         stats.logged_skips = total_skips
         logger.info(
-            "VoxCPM2 unified graph stats: captures=%d replays=%d skips=%s",
+            "VoxCPM2 unified graph stats: captures=%d replays=%d skips=%s real_batch_sizes=%s graph_bucket_sizes=%s",
             stats.captures,
             stats.replays,
             stats.skips,
+            dict(sorted(stats.real_batch_sizes.items())),
+            dict(sorted(stats.graph_bucket_sizes.items())),
         )
 
     def _forward_unified_decode(
@@ -1925,6 +1933,8 @@ class VoxCPM2TalkerForConditionalGeneration(nn.Module):
             self._unified_graphs[graph_size] = g
 
         self._unified_graph_stats.replays += 1
+        if self._enable_profiling:
+            self._unified_graph_stats.record_replay_batch(real_batch_size=num_reqs, graph_bucket_size=graph_size)
         self._maybe_log_unified_graph_stats()
         states: list[_RequestState] = []
         commit_mask: list[bool] = []
