@@ -117,11 +117,9 @@ def test_voxcpm2_graph_paths_fail_closed_and_preserve_deterministic_noise():
     assert "g.cfm_noise.normal_()" not in graph_body
     assert "g.cfm_noise.normal_()" in unified_source
 
-    pre_capture_source = source[source.index("def _pre_capture_unified_graphs") :]
-    pre_capture_source = pre_capture_source[: pre_capture_source.index("def _maybe_log_unified_graph_stats")]
-    assert "_failed_unified_graph_sizes" not in pre_capture_source
-    assert "except Exception:" not in pre_capture_source
-    assert "self._enable_unified_decode_graph = False" not in pre_capture_source
+    assert "_pre_capture_unified_graphs" not in source
+    assert "_unified_graph_pre_capture_sizes" not in source
+    assert "unified_decode_graph_pre_capture_sizes" not in source
 
 
 def test_voxcpm2_batch_unified_graph_requires_runner_metadata_marker():
@@ -200,7 +198,7 @@ def test_voxcpm2_deploy_defaults_to_full_unified_graph_only():
     assert "max_num_seqs: 8" in source
     assert "enable_unified_decode_graph: true" in source
     assert "unified_decode_graph_max_batch_size: 8" in source
-    assert "unified_decode_graph_pre_capture_sizes: 1,2,4,8" in source
+    assert "unified_decode_graph_pre_capture_sizes" not in source
     assert "enable_runner_assisted_unified_decode_graph" not in source
     assert "allow_unified_decode_graph_batch_attention" not in source
     assert "decode_graph_capture_policy" not in source

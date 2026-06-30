@@ -135,7 +135,6 @@ class _VoxCPM2RuntimeConfig:
     enable_batched_prefill_tail: bool = False
     enable_unified_decode_graph: bool = True
     unified_decode_graph_max_batch_size: int = 64
-    unified_decode_graph_pre_capture_sizes: str = "1"
 
     @classmethod
     def from_vllm_config(cls, vllm_config: VllmConfig) -> _VoxCPM2RuntimeConfig:
@@ -1030,9 +1029,6 @@ class VoxCPM2TalkerForConditionalGeneration(nn.Module):
         self._unified_graph_bucket_sizes: frozenset[int] = self._build_unified_graph_bucket_sizes(
             min(self._max_batch_size, self._unified_decode_graph_max_batch_size)
         )
-        self._unified_graph_pre_capture_sizes = self._parse_unified_graph_pre_capture_sizes(
-            self._runtime_config.unified_decode_graph_pre_capture_sizes
-        )
         self._unified_graph_stats = _UnifiedDecodeGraphStats()
         self._runner_assisted_unified_decode_graph_active = False
         self._runner_assisted_unified_decode_graph_batch_size = 0
@@ -1585,28 +1581,6 @@ class VoxCPM2TalkerForConditionalGeneration(nn.Module):
             return None
         return min((size for size in self._unified_graph_bucket_sizes if size >= batch_size), default=None)
 
-    def _parse_unified_graph_pre_capture_sizes(self, raw: str) -> tuple[int, ...]:
-        max_size = min(self._max_batch_size, self._unified_decode_graph_max_batch_size)
-        value = raw.strip().lower()
-        if not value or value in {"0", "false", "none", "off"}:
-            return ()
-
-        if value in {"power2", "powers_of_two"}:
-            candidates = [1 << i for i in range(max_size.bit_length())]
-        else:
-            candidates = []
-            for part in raw.split(","):
-                part = part.strip()
-                if not part:
-                    continue
-                try:
-                    candidates.append(int(part))
-                except ValueError:
-                    logger.warning("Ignoring invalid graph pre-capture size: %s", part)
-
-        sizes = {size for size in candidates if 0 < size <= max_size and size in self._unified_graph_bucket_sizes}
-        return tuple(sorted(sizes, reverse=True))
-
     def _capture_vae_graph(self, feat: torch.Tensor) -> _CapturedVAEGraph:
         batch_size = feat.shape[0]
         num_frames = feat.shape[-1]
@@ -1919,14 +1893,6 @@ class VoxCPM2TalkerForConditionalGeneration(nn.Module):
                 return "state_not_ready"
         return None
 
-    def _pre_capture_unified_graphs(self, trigger_size: int) -> None:
-        for size in self._unified_graph_pre_capture_sizes:
-            if size in self._unified_graphs:
-                continue
-            if size == trigger_size:
-                continue
-            self._unified_graphs[size] = self._capture_unified_decode_graph(size)
-
     def _maybe_log_unified_graph_stats(self) -> None:
         if not self._enable_profiling:
             return
@@ -1957,8 +1923,6 @@ class VoxCPM2TalkerForConditionalGeneration(nn.Module):
         if g is None:
             g = self._capture_unified_decode_graph(graph_size)
             self._unified_graphs[graph_size] = g
-            if len(self._unified_graphs) == 1 and self._unified_graph_pre_capture_sizes:
-                self._pre_capture_unified_graphs(num_reqs)
 
         self._unified_graph_stats.replays += 1
         self._maybe_log_unified_graph_stats()
