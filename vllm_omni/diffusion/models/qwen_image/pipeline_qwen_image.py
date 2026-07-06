@@ -31,6 +31,10 @@ from vllm_omni.diffusion.models.dmd2 import DMD2PipelineMixin
 from vllm_omni.diffusion.models.qwen_image.cfg_parallel import (
     QwenImageCFGParallelMixin,
 )
+from vllm_omni.diffusion.models.qwen_image.pid_decoder import (
+    PidDecodeConfig,
+    PidDecoder,
+)
 from vllm_omni.diffusion.models.qwen_image.qwen_image_transformer import (
     QwenImageTransformer2DModel,
 )
@@ -898,9 +902,10 @@ class QwenImagePipeline(nn.Module, QwenImageCFGParallelMixin, DiffusionPipelineP
     ) -> DiffusionOutput:
         """Unpack, normalize, and decode latents into a DiffusionOutput.
 
-        When a PiD decoder is configured and ``caption`` is provided, the
-        LDM ``x_0`` latent is decoded via PiD into a higher-resolution RGB
-        image instead of through the VAE.
+        The standard VAE decode always runs and its result is returned as
+        the primary ``output`` (preserving native behavior). When a PiD
+        decoder is configured, an additional super-resolved image is
+        produced and attached to ``custom_output["pid_image"]``.
         """
         if output_type == "latent":
             return DiffusionOutput(
@@ -911,7 +916,24 @@ class QwenImagePipeline(nn.Module, QwenImageCFGParallelMixin, DiffusionPipelineP
         # (B, num_patches, channels) -> (B, 16, 1, zH, zW)
         latents_4d = self._unpack_latents(latents, height, width, self.vae_scale_factor)
 
-        # ── PiD super-resolution decode path ──
+        # ── Standard VAE decode path (always run, native image) ──
+        vae_latents = latents_4d.to(self.vae.dtype)
+        latents_mean = (
+            torch.tensor(self.vae.config.latents_mean)
+            .view(1, self.vae.config.z_dim, 1, 1, 1)
+            .to(vae_latents.device, vae_latents.dtype)
+        )
+        latents_std = 1.0 / torch.tensor(self.vae.config.latents_std).view(1, self.vae.config.z_dim, 1, 1, 1).to(
+            vae_latents.device, vae_latents.dtype
+        )
+        vae_latents = vae_latents / latents_std + latents_mean
+        image = self.vae.decode(vae_latents, return_dict=False)[0][:, :, 0]
+
+        # ── PiD super-resolution decode (extension, optional) ──
+        # When enabled, the native VAE image is still returned as the primary
+        # ``output`` (so existing behavior is preserved), and the PiD
+        # super-resolved image is attached to ``custom_output["pid_image"]``
+        # for downstream consumers to save with a suffix.
         if self._pid_decoder is not None:
             if caption is None:
                 logger.warning(
@@ -934,25 +956,14 @@ class QwenImagePipeline(nn.Module, QwenImageCFGParallelMixin, DiffusionPipelineP
                 num_steps=self._pid_config.num_steps,
                 seed=self._pid_config.seed,
             )
-            # pid_out: (B, 3, H, W) in [-1, 1] -> [0, 1] for DiffusionOutput
+            # pid_out: (B, 3, H, W) in [-1, 1] -> [0, 1]
             pid_out_01 = (pid_out + 1.0) / 2.0
             return DiffusionOutput(
-                output=pid_out_01,
+                output=image,
                 stage_durations=self.stage_durations if hasattr(self, "stage_durations") else None,
+                custom_output={"pid_image": pid_out_01},
             )
 
-        # ── Standard VAE decode path ──
-        latents = latents_4d.to(self.vae.dtype)
-        latents_mean = (
-            torch.tensor(self.vae.config.latents_mean)
-            .view(1, self.vae.config.z_dim, 1, 1, 1)
-            .to(latents.device, latents.dtype)
-        )
-        latents_std = 1.0 / torch.tensor(self.vae.config.latents_std).view(1, self.vae.config.z_dim, 1, 1, 1).to(
-            latents.device, latents.dtype
-        )
-        latents = latents / latents_std + latents_mean
-        image = self.vae.decode(latents, return_dict=False)[0][:, :, 0]
         return DiffusionOutput(
             output=image,
             stage_durations=self.stage_durations if hasattr(self, "stage_durations") else None,

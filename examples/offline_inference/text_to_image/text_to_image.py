@@ -593,6 +593,25 @@ def main():
             img.save(save_path)
             print(f"Saved generated image to {save_path}")
 
+    # PiD super-resolution image (optional): when PiD decode is enabled, the
+    # pipeline attaches a high-resolution tensor to custom_output["pid_image"].
+    # Save it next to the native image with a "_pid" suffix for easy comparison.
+    custom_out = getattr(req_out, "custom_output", None) or {}
+    pid_tensor = custom_out.get("pid_image")
+    if pid_tensor is not None:
+        import numpy as np
+
+        # pid_tensor: (B, 3, H, W) in [0, 1]
+        pid_imgs = (pid_tensor * 255.0).round().clamp(0, 255).to(torch.uint8).cpu().numpy()
+        for b in range(pid_imgs.shape[0]):
+            arr = np.transpose(pid_imgs[b], (1, 2, 0))  # HWC
+            from PIL import Image as PILImage
+
+            pil_img = PILImage.fromarray(arr)
+            pid_save_path = output_path.parent / f"{stem}_pid{('_' + str(b)) if pid_imgs.shape[0] > 1 else ''}{suffix}"
+            pil_img.save(pid_save_path)
+            print(f"Saved PiD super-resolved image to {pid_save_path}")
+
 
 if __name__ == "__main__":
     main()

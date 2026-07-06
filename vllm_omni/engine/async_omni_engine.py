@@ -2004,6 +2004,13 @@ class AsyncOmniEngine:
         if kwargs.get("diffusers_call_kwargs") is not None:
             stage_engine_args["diffusers_call_kwargs"] = kwargs["diffusers_call_kwargs"]
 
+        # PiD (Pixel Diffusion) super-resolution decoder config. Passed
+        # through as-is; OmniDiffusionConfig.from_kwargs filters by valid
+        # dataclass fields and QwenImagePipeline._resolve_pid_config
+        # normalizes dict -> PidDecodeConfig.
+        if kwargs.get("pid_decode") is not None:
+            stage_engine_args["pid_decode"] = kwargs["pid_decode"]
+
         default_stage_cfg = [
             {
                 "stage_id": 0,
@@ -2179,6 +2186,12 @@ class AsyncOmniEngine:
                         or cfg.engine_args.diffusion_kv_cache_skip_layers is None
                     ):
                         cfg.engine_args.diffusion_kv_cache_skip_layers = diffusion_kv_cache_skip_layers
+                # PiD (Pixel Diffusion) super-resolution decoder config.
+                # Inject from CLI kwargs when not already set in the stage YAML.
+                pid_decode_cfg = kwargs.get("pid_decode")
+                if pid_decode_cfg is not None:
+                    if not hasattr(cfg.engine_args, "pid_decode") or cfg.engine_args.pid_decode is None:
+                        cfg.engine_args.pid_decode = pid_decode_cfg
             except Exception as e:
                 logger.warning("Failed to inject LoRA config for stage: %s", e)
 
