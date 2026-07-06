@@ -346,6 +346,34 @@ class QwenImagePipeline(nn.Module, QwenImageCFGParallelMixin, DiffusionPipelineP
             enable_diffusion_pipeline_profiler=self.od_config.enable_diffusion_pipeline_profiler
         )
 
+        # PiD (Pixel Diffusion) super-resolution decoder. Lazily loaded on
+        # first use; stays resident in GPU memory for subsequent requests.
+        self._pid_config = self._resolve_pid_config(od_config)
+        self._pid_decoder: PidDecoder | None = None
+        if self._pid_config is not None and self._pid_config.enabled:
+            self._pid_decoder = PidDecoder(
+                checkpoint_path=self._pid_config.checkpoint_path,
+                experiment=self._pid_config.experiment,
+                local_gemma_path=self._pid_config.local_gemma_path,
+                load_ema_to_reg=self._pid_config.load_ema_to_reg,
+            )
+
+    @staticmethod
+    def _resolve_pid_config(
+        od_config: OmniDiffusionConfig,
+    ) -> PidDecodeConfig | None:
+        """Normalize ``od_config.pid_decode`` to a ``PidDecodeConfig`` or None."""
+        raw = getattr(od_config, "pid_decode", None)
+        if raw is None:
+            return None
+        if isinstance(raw, PidDecodeConfig):
+            return raw
+        if isinstance(raw, dict):
+            return PidDecodeConfig(**raw)
+        raise TypeError(
+            f"pid_decode must be PidDecodeConfig, dict, or None, got {type(raw)!r}"
+        )
+
     def check_inputs(
         self,
         prompt,
@@ -866,16 +894,55 @@ class QwenImagePipeline(nn.Module, QwenImageCFGParallelMixin, DiffusionPipelineP
         height: int,
         width: int,
         output_type: str = "pil",
+        caption: str | list[str] | None = None,
     ) -> DiffusionOutput:
-        """Unpack, normalize, and VAE-decode latents into a DiffusionOutput."""
+        """Unpack, normalize, and decode latents into a DiffusionOutput.
+
+        When a PiD decoder is configured and ``caption`` is provided, the
+        LDM ``x_0`` latent is decoded via PiD into a higher-resolution RGB
+        image instead of through the VAE.
+        """
         if output_type == "latent":
             return DiffusionOutput(
                 output=latents,
                 stage_durations=self.stage_durations if hasattr(self, "stage_durations") else None,
             )
 
-        latents = self._unpack_latents(latents, height, width, self.vae_scale_factor)
-        latents = latents.to(self.vae.dtype)
+        # (B, num_patches, channels) -> (B, 16, 1, zH, zW)
+        latents_4d = self._unpack_latents(latents, height, width, self.vae_scale_factor)
+
+        # ── PiD super-resolution decode path ──
+        if self._pid_decoder is not None:
+            if caption is None:
+                logger.warning(
+                    "PiD decode is enabled but no caption was provided; "
+                    "falling back to an empty prompt."
+                )
+                caption = ""
+            # PiD expects (B, 16, zH, zW); Qwen-Image's unpacked latent is
+            # already per-channel normalized and matches the PiD training
+            # frame format, so no mean/std conversion is needed.
+            lq_latent = latents_4d.squeeze(2)
+            pid_out = self._pid_decoder.decode(
+                lq_latent=lq_latent,
+                caption=caption,
+                output_size=(
+                    height * self._pid_config.scale,
+                    width * self._pid_config.scale,
+                ),
+                degrade_sigma=self._pid_config.degrade_sigma,
+                num_steps=self._pid_config.num_steps,
+                seed=self._pid_config.seed,
+            )
+            # pid_out: (B, 3, H, W) in [-1, 1] -> [0, 1] for DiffusionOutput
+            pid_out_01 = (pid_out + 1.0) / 2.0
+            return DiffusionOutput(
+                output=pid_out_01,
+                stage_durations=self.stage_durations if hasattr(self, "stage_durations") else None,
+            )
+
+        # ── Standard VAE decode path ──
+        latents = latents_4d.to(self.vae.dtype)
         latents_mean = (
             torch.tensor(self.vae.config.latents_mean)
             .view(1, self.vae.config.z_dim, 1, 1, 1)
@@ -1058,7 +1125,7 @@ class QwenImagePipeline(nn.Module, QwenImageCFGParallelMixin, DiffusionPipelineP
         )
 
         self._current_timestep = None
-        return self._decode_latents(latents, height, width, output_type)
+        return self._decode_latents(latents, height, width, output_type, caption=prompt)
 
     def load_weights(self, weights: Iterable[tuple[str, torch.Tensor]]) -> set[str]:
         loader = AutoWeightsLoader(self)

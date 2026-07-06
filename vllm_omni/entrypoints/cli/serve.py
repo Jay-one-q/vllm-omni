@@ -6,9 +6,11 @@ diffusion models (e.g., Qwen-Image) through the same CLI interface.
 """
 
 import argparse
+import asyncio
 import json
 import os
 import signal
+import sys
 import threading
 from multiprocessing import connection
 from types import FrameType
@@ -107,7 +109,20 @@ class OmniServeCommand(CLISubcommand):
         if args.headless:
             run_headless(args)
         else:
-            uvloop.run(omni_run_server(args))
+            if OmniServeCommand._is_debugger_active():
+                asyncio.run(omni_run_server(args))
+            else:
+                uvloop.run(omni_run_server(args))
+
+    @staticmethod
+    def _is_debugger_active() -> bool:
+        if sys.gettrace() is not None:
+            return True
+        if "pydevd" in sys.modules:
+            return True
+        if os.environ.get("PYDEVD_USE_CYTHON") is not None:
+            return True
+        return False
 
     def validate(self, args: argparse.Namespace) -> None:
         if args.stage_id is not None and (args.omni_master_address is None or args.omni_master_port is None):

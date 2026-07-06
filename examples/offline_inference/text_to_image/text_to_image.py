@@ -306,6 +306,58 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Supplementary auxiliary text encoder parameters model name or path (especially for Hidream-l1-full).",
     )
+    # ── PiD (Pixel Diffusion) super-resolution decoder ──
+    parser.add_argument(
+        "--pid-enable",
+        action="store_true",
+        help=(
+            "Enable PiD super-resolution decoding. When set, the LDM x_0 latent "
+            "is decoded via PiD into a higher-resolution RGB image instead of "
+            "the VAE. Requires the external `pid` package (pip install -e /path/to/PiD)."
+        ),
+    )
+    parser.add_argument(
+        "--pid-checkpoint",
+        type=str,
+        default=(
+            "checkpoints/"
+            "PiD_res2kto4k_sr4x_official_qwenimage_distill_4step/model_ema_bf16.pth"
+        ),
+        help="Path to the PiD distilled checkpoint (.pth).",
+    )
+    parser.add_argument(
+        "--pid-experiment",
+        type=str,
+        default="PiD_res2kto4k_sr4x_official_qwenimage_distill_4step",
+        help="PiD experiment name (selects network architecture + config).",
+    )
+    parser.add_argument(
+        "--pid-local-gemma",
+        type=str,
+        default=None,
+        help=(
+            "Local directory containing gemma-2-2b-it weights. When omitted, PiD "
+            "downloads the encoder from HuggingFace (requires network access)."
+        ),
+    )
+    parser.add_argument(
+        "--pid-scale",
+        type=int,
+        default=4,
+        help="PiD super-resolution factor applied to the LDM output resolution.",
+    )
+    parser.add_argument(
+        "--pid-num-steps",
+        type=int,
+        default=4,
+        help="Number of distilled SDE sampling steps (4 for the distilled checkpoint).",
+    )
+    parser.add_argument(
+        "--pid-seed",
+        type=int,
+        default=0,
+        help="Base RNG seed for PiD sampling.",
+    )
     current_omni_platform.pre_register_and_update(parser)
     return parser.parse_args()
 
@@ -404,6 +456,20 @@ def main():
     if use_nextstep:
         # NextStep-1.1 requires explicit pipeline class
         omni_kwargs["model_class_name"] = "NextStep11Pipeline"
+    # Cosmos3 loads its (gated) guardrail models at build time, so the guardrails
+    # gate is an engine-level config (offline analog of the server's --no-guardrails).
+    if args.extra_body and "guardrails" in args.extra_body:
+        omni_kwargs["model_config"] = {"guardrails": bool(args.extra_body["guardrails"])}
+    if args.pid_enable:
+        omni_kwargs["pid_decode"] = {
+            "enabled": True,
+            "checkpoint_path": args.pid_checkpoint,
+            "experiment": args.pid_experiment,
+            "local_gemma_path": args.pid_local_gemma,
+            "scale": args.pid_scale,
+            "num_steps": args.pid_num_steps,
+            "seed": args.pid_seed,
+        }
     omni = Omni(**omni_kwargs)
 
     if profiler_enabled:
