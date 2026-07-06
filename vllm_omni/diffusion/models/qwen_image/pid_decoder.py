@@ -26,6 +26,7 @@ Design notes
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 
 import torch
@@ -80,19 +81,43 @@ class PidDecodeConfig:
 # PiD internal-path patchers (run before model construction)
 # ---------------------------------------------------------------------------
 
-def _resolve_config_path() -> str:
-    """Return the absolute path to PiD's config file, regardless of CWD.
+def _patch_config_module_resolver() -> None:
+    
+    import pid._ext.imaginaire.utils.config_helper as _ch  # noqa: PLC0415
+    import pid._src.utils.model_loader as _ml  # noqa: PLC0415
 
-    ``pid._ext.imaginaire.utils.config_helper.get_config_module`` checks
-    ``os.path.isfile(config_file)`` against the process CWD. When PiD is
-    pip-installed and vllm-omni is the CWD, the relative path
-    ``"pid/_src/configs/pid/config.py"`` does not exist, so the assertion
-    fails. We sidestep this by handing PiD the *absolute* path obtained from
-    the imported module's ``__file__`` attribute.
-    """
-    import pid._src.configs.pid.config as _mod  # noqa: PLC0415 (lazy import)
+    # 幂等：已 patch 过则跳过
+    if getattr(_ch.get_config_module, "_pid_patched", False):
+        return
 
-    return _mod.__file__
+    # 通过 import 拿到 PiD config 模块的规范名，不依赖文件路径。
+    import pid._src.configs.pid.config as _cfg_mod  # noqa: PLC0415
+    _expected_module_name = _cfg_mod.__name__  # "pid._src.configs.pid.config"
+    # PiD 默认传入的相对路径，以及它的归一化形式（兼容 Windows 反斜杠）。
+    _expected_rel_paths = {
+        "pid/_src/configs/pid/config.py",
+        "pid\\_src\\configs\\pid\\config.py",
+    }
+
+    _orig_get_config_module = _ch.get_config_module
+
+    def _patched_get_config_module(config_file: str) -> str:
+        # 归一化比较：支持相对路径、绝对路径、正反斜杠。
+        normalized = config_file.replace("\\", "/").rstrip("/")
+        if (
+            normalized in _expected_rel_paths
+            or normalized.endswith("pid/_src/configs/pid/config.py")
+        ):
+            return _expected_module_name
+        # 其它路径走原逻辑（保持 PiD 对自定义 config 的支持）
+        return _orig_get_config_module(config_file)
+
+    _patched_get_config_module._pid_patched = True  # type: ignore[attr-defined]
+
+    # patch 两处引用：config_helper 原始定义 + model_loader 的 from-import
+    _ch.get_config_module = _patched_get_config_module
+    _ml.get_config_module = _patched_get_config_module
+    logger.info("PiD get_config_module patched to resolve config by module name.")
 
 
 def _patch_text_encoder_path(local_gemma_path: str) -> None:
@@ -145,22 +170,31 @@ class PidDecoder:
         if self._model is not None:
             return
 
-        # Gemma path must be patched BEFORE model construction, since
-        # ``load_model_from_checkpoint`` triggers ``_load_text_encoder``.
+        # Config resolver 必须先 patch：load_model_from_checkpoint 内部
+        # 调用 get_config_module，patch 后不依赖 CWD 即可解析 PiD config。
+        _patch_config_module_resolver()
+
+        # Gemma path 必须在模型构造前 patch，因为 load_model_from_checkpoint
+        # 会触发 _load_text_encoder。
         if self._local_gemma_path is not None:
             _patch_text_encoder_path(self._local_gemma_path)
 
         from pid._src.utils.model_loader import load_model_from_checkpoint  # noqa: PLC0415
 
+        # checkpoint 转绝对路径，避免任何 CWD 假设。
+        abs_checkpoint = os.path.abspath(self._checkpoint_path)
+
         logger.info(
             "Loading PiD model (experiment=%s, checkpoint=%s) ...",
             self._experiment,
-            self._checkpoint_path,
+            abs_checkpoint,
         )
+        # config_file 用 PiD 默认的相对路径即可，_patch_config_module_resolver
+        # 会把它直接映射到已安装的 pid._src.configs.pid.config 模块名。
         self._model, self._config = load_model_from_checkpoint(
             experiment_name=self._experiment,
-            checkpoint_path=self._checkpoint_path,
-            config_file=_resolve_config_path(),
+            checkpoint_path=abs_checkpoint,
+            config_file="pid/_src/configs/pid/config.py",
             enable_fsdp=False,
             experiment_opts=[],
             strict=False,
