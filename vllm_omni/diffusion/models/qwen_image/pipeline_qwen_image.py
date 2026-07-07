@@ -359,6 +359,7 @@ class QwenImagePipeline(nn.Module, QwenImageCFGParallelMixin, DiffusionPipelineP
                 checkpoint_path=self._pid_config.checkpoint_path,
                 experiment=self._pid_config.experiment,
                 local_gemma_path=self._pid_config.local_gemma_path,
+                local_vae_path=self._pid_config.local_vae_path,
                 load_ema_to_reg=self._pid_config.load_ema_to_reg,
             )
 

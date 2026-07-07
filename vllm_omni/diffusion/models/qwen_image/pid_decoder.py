@@ -65,6 +65,10 @@ class PidDecodeConfig:
     # Local directory containing gemma-2-2b-it weights. When ``None``, PiD
     # downloads the encoder from HuggingFace (requires network access).
     local_gemma_path: str | None = None
+    # Path to QwenImage_VAE_2d.pth (PiD's 2D VAE weights). When ``None``, PiD
+    # uses the relative default "./checkpoints/QwenImage_VAE_2d.pth" which
+    # only works if CWD is the PiD repo root.
+    local_vae_path: str | None = None
     # Super-resolution factor applied to the LDM output resolution.
     scale: int = 4
     # Number of distilled SDE sampling steps (4 for the distilled checkpoint).
@@ -137,6 +141,26 @@ def _patch_text_encoder_path(local_gemma_path: str) -> None:
     logger.info("PiD text encoder path patched: %s -> %s", old, local_gemma_path)
 
 
+def _patch_vae_path(local_vae_path: str) -> None:
+    """Override PiD's QwenImage 2D VAE default weight path.
+
+    PiD's ``qwenimage_vae.py`` uses a module-level constant
+    ``_DEFAULT_LOCAL_CACHE = "./checkpoints/QwenImage_VAE_2d.pth"`` as the
+    fallback VAE weight path. This relative path only resolves when CWD is
+    the PiD repo root. When PiD is pip-installed and vllm-omni is the CWD,
+    the file is not found and loading fails.
+
+    Since the constant is read at call time (as a default argument value),
+    reassigning the module attribute before model construction makes PiD
+    pick up the new path. This avoids touching PiD source code.
+    """
+    import pid._src.tokenizers.qwenimage_vae as _qv  # noqa: PLC0415 (lazy import)
+
+    old = _qv._DEFAULT_LOCAL_CACHE
+    _qv._DEFAULT_LOCAL_CACHE = local_vae_path
+    logger.info("PiD QwenImage VAE path patched: %s -> %s", old, local_vae_path)
+
+
 # ---------------------------------------------------------------------------
 # PidDecoder
 # ---------------------------------------------------------------------------
@@ -155,11 +179,13 @@ class PidDecoder:
         checkpoint_path: str,
         experiment: str = _QWENIMAGE_PID_EXPERIMENT,
         local_gemma_path: str | None = None,
+        local_vae_path: str | None = None,
         load_ema_to_reg: bool = True,
     ):
         self._checkpoint_path = checkpoint_path
         self._experiment = experiment
         self._local_gemma_path = local_gemma_path
+        self._local_vae_path = local_vae_path
         self._load_ema_to_reg = load_ema_to_reg
         self._model = None
         self._config = None
@@ -178,6 +204,11 @@ class PidDecoder:
         # 会触发 _load_text_encoder。
         if self._local_gemma_path is not None:
             _patch_text_encoder_path(self._local_gemma_path)
+
+        # VAE path 同理：QwenImageVAEInterface 在构造时读取
+        # _DEFAULT_LOCAL_CACHE，patch 后走用户指定的绝对路径。
+        if self._local_vae_path is not None:
+            _patch_vae_path(self._local_vae_path)
 
         from pid._src.utils.model_loader import load_model_from_checkpoint  # noqa: PLC0415
 
