@@ -900,6 +900,7 @@ class QwenImagePipeline(nn.Module, QwenImageCFGParallelMixin, DiffusionPipelineP
         width: int,
         output_type: str = "pil",
         caption: str | list[str] | None = None,
+        pid_override: dict[str, Any] | None = None,
     ) -> DiffusionOutput:
         """Unpack, normalize, and decode latents into a DiffusionOutput.
 
@@ -907,12 +908,52 @@ class QwenImagePipeline(nn.Module, QwenImageCFGParallelMixin, DiffusionPipelineP
         the primary ``output`` (preserving native behavior). When a PiD
         decoder is configured, an additional super-resolved image is
         produced and attached to ``custom_output["pid_image"]``.
+
+        ``pid_override`` allows a per-request override of the startup-level
+        PiD config:
+
+        * ``None`` — use the startup config as-is (backward-compatible).
+        * ``{"enabled": False}`` — skip PiD for this request even when PiD
+          is configured at startup. No weights are unloaded; subsequent
+          requests can still use PiD.
+        * ``{"enabled": True, ...}`` — require PiD for this request; raises
+          ``RuntimeError`` if the pipeline was not configured with PiD at
+          startup (weights are not lazily loaded here).
+        * Other keys (``scale``, ``num_steps``, ``seed``, ``degrade_sigma``)
+          override the corresponding startup fields for this request only.
         """
         if output_type == "latent":
             return DiffusionOutput(
                 output=latents,
                 stage_durations=self.stage_durations if hasattr(self, "stage_durations") else None,
             )
+
+        # Resolve the effective PiD decoder/config for this request.
+        pid_decoder = self._pid_decoder
+        pid_config = self._pid_config
+        if pid_override is not None:
+            ov_enabled = pid_override.get("enabled")
+            if ov_enabled is False:
+                # Request explicitly disables PiD for this call.
+                pid_decoder = None
+            elif ov_enabled is True and pid_decoder is None:
+                raise RuntimeError(
+                    "PiD decode was requested per-request (pid_decode.enabled=True) "
+                    "but the pipeline was not configured with --pid-enable at startup. "
+                    "PiD weights are not lazily loaded on request; restart the service "
+                    "with --pid-enable to enable this feature."
+                )
+            # Apply per-request scalar overrides on a shallow copy of the config.
+            if pid_decoder is not None and pid_config is not None:
+                from dataclasses import replace as _dc_replace  # noqa: PLC0415
+
+                overrides = {
+                    k: pid_override[k]
+                    for k in ("scale", "num_steps", "seed", "degrade_sigma")
+                    if k in pid_override
+                }
+                if overrides:
+                    pid_config = _dc_replace(pid_config, **overrides)
 
         # (B, num_patches, channels) -> (B, 16, 1, zH, zW)
         latents_4d = self._unpack_latents(latents, height, width, self.vae_scale_factor)
@@ -935,7 +976,7 @@ class QwenImagePipeline(nn.Module, QwenImageCFGParallelMixin, DiffusionPipelineP
         # ``output`` (so existing behavior is preserved), and the PiD
         # super-resolved image is attached to ``custom_output["pid_image"]``
         # for downstream consumers to save with a suffix.
-        if self._pid_decoder is not None:
+        if pid_decoder is not None:
             if caption is None:
                 logger.warning(
                     "PiD decode is enabled but no caption was provided; "
@@ -946,16 +987,16 @@ class QwenImagePipeline(nn.Module, QwenImageCFGParallelMixin, DiffusionPipelineP
             # already per-channel normalized and matches the PiD training
             # frame format, so no mean/std conversion is needed.
             lq_latent = latents_4d.squeeze(2)
-            pid_out = self._pid_decoder.decode(
+            pid_out = pid_decoder.decode(
                 lq_latent=lq_latent,
                 caption=caption,
                 output_size=(
-                    height * self._pid_config.scale,
-                    width * self._pid_config.scale,
+                    height * pid_config.scale,
+                    width * pid_config.scale,
                 ),
-                degrade_sigma=self._pid_config.degrade_sigma,
-                num_steps=self._pid_config.num_steps,
-                seed=self._pid_config.seed,
+                degrade_sigma=pid_config.degrade_sigma,
+                num_steps=pid_config.num_steps,
+                seed=pid_config.seed,
             )
             # pid_out: (B, 3, H, W) in [-1, 1] -> [0, 1]
             pid_out_01 = (pid_out + 1.0) / 2.0
@@ -1049,8 +1090,19 @@ class QwenImagePipeline(nn.Module, QwenImageCFGParallelMixin, DiffusionPipelineP
         height = state.sampling.height or self.default_sample_size * self.vae_scale_factor
         width = state.sampling.width or self.default_sample_size * self.vae_scale_factor
         output_type = kwargs.get("output_type", "pil")
+        # Per-request PiD override (None → use startup config, backward-compatible).
+        pid_override = getattr(state.sampling, "pid_decode", None)
+        # Caption: prefer the first prompt in the request state, if available.
+        caption: str | list[str] | None = None
+        if state.prompts:
+            prompts = [p for p in state.prompts if isinstance(p, str)]
+            if prompts:
+                caption = prompts[0] if len(prompts) == 1 else prompts
 
-        return self._decode_latents(state.latents, height, width, output_type)
+        return self._decode_latents(
+            state.latents, height, width, output_type,
+            caption=caption, pid_override=pid_override,
+        )
 
     def forward(
         self,
@@ -1137,7 +1189,12 @@ class QwenImagePipeline(nn.Module, QwenImageCFGParallelMixin, DiffusionPipelineP
         )
 
         self._current_timestep = None
-        return self._decode_latents(latents, height, width, output_type, caption=prompt)
+        # Per-request PiD override (None → use startup config, backward-compatible).
+        pid_override = getattr(req.sampling_params, "pid_decode", None)
+        return self._decode_latents(
+            latents, height, width, output_type,
+            caption=prompt, pid_override=pid_override,
+        )
 
     def load_weights(self, weights: Iterable[tuple[str, torch.Tensor]]) -> set[str]:
         loader = AutoWeightsLoader(self)
