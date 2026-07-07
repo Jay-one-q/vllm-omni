@@ -117,6 +117,18 @@ logger = init_logger(__name__)
 
 _STARTUP_POLL_INTERVAL_S = 1.0
 
+# Mapping from PiD CLI flag dest names (``--pid-*``) to PidDecodeConfig field
+# names. Used in ``__init__`` to pack individual flags into ``pid_decode`` dict.
+_PID_CLI_TO_CFG: list[tuple[str, str]] = [
+    ("pid_checkpoint", "checkpoint_path"),
+    ("pid_experiment", "experiment"),
+    ("pid_local_gemma", "local_gemma_path"),
+    ("pid_local_vae", "local_vae_path"),
+    ("pid_scale", "scale"),
+    ("pid_num_steps", "num_steps"),
+    ("pid_seed", "seed"),
+]
+
 
 @dataclass(frozen=True, slots=True)
 class StageRuntimeInfo:
@@ -292,6 +304,25 @@ class AsyncOmniEngine:
         self._log_stats = log_stats
 
         logger.info(f"[AsyncOmniEngine] Initializing with model {model}")
+
+        # ------------------------------------------------------------------ #
+        # PiD (Pixel Diffusion) kwargs packing                               #
+        # ------------------------------------------------------------------ #
+        # Pack individual --pid-* CLI flags into a ``pid_decode`` dict so
+        # downstream (``_create_default_diffusion_stage_cfg``,
+        # ``OmniDiffusionConfig.from_kwargs``) receives the same format as
+        # the offline-inference ``omni_kwargs["pid_decode"]`` path.
+        pid_enable = kwargs.pop("pid_enable", False)
+        if pid_enable:
+            pid_decode: dict[str, Any] = {"enabled": True}
+            for cli_key, cfg_key in _PID_CLI_TO_CFG:
+                val = kwargs.pop(cli_key, None)
+                if val is not None:
+                    pid_decode[cfg_key] = val
+            kwargs["pid_decode"] = pid_decode
+        else:
+            for cli_key, _ in _PID_CLI_TO_CFG:
+                kwargs.pop(cli_key, None)
 
         # ------------------------------------------------------------------ #
         # Single-stage mode detection                                        #

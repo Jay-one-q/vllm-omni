@@ -641,6 +641,58 @@ class OmniServeCommand(CLISubcommand):
             "Equivalent to setting DiffusionParallelConfig.vae_patch_parallel_size.",
         )
 
+        # PiD (Pixel Diffusion) super-resolution decoder
+        omni_config_group.add_argument(
+            "--pid-enable",
+            action="store_true",
+            default=False,
+            help="Enable PiD super-resolution decode for text-to-image models (Qwen-Image). "
+            "Loads PiD weights into GPU memory at startup; they stay resident for all requests.",
+        )
+        omni_config_group.add_argument(
+            "--pid-checkpoint",
+            type=str,
+            default="checkpoints/PiD_res2kto4k_sr4x_official_qwenimage_distill_4step/model_ema_bf16.pth",
+            help="Path to the PiD distilled checkpoint (.pth).",
+        )
+        omni_config_group.add_argument(
+            "--pid-experiment",
+            type=str,
+            default="PiD_res2kto4k_sr4x_official_qwenimage_distill_4step",
+            help="PiD experiment name (selects network architecture + config).",
+        )
+        omni_config_group.add_argument(
+            "--pid-local-gemma",
+            type=str,
+            default=None,
+            help="Local directory containing gemma-2-2b-it weights. "
+            "When omitted, PiD downloads from HuggingFace.",
+        )
+        omni_config_group.add_argument(
+            "--pid-local-vae",
+            type=str,
+            default=None,
+            help="Path to QwenImage_VAE_2d.pth (PiD's 2D VAE weights).",
+        )
+        omni_config_group.add_argument(
+            "--pid-scale",
+            type=int,
+            default=4,
+            help="PiD super-resolution factor (default: 4, i.e. 1024x1024 -> 4096x4096).",
+        )
+        omni_config_group.add_argument(
+            "--pid-num-steps",
+            type=int,
+            default=4,
+            help="Number of PiD distilled SDE sampling steps (default: 4).",
+        )
+        omni_config_group.add_argument(
+            "--pid-seed",
+            type=int,
+            default=0,
+            help="Base RNG seed for PiD sampling.",
+        )
+
         # Default sampling parameters
         omni_config_group.add_argument(
             "--default-sampling-params",
