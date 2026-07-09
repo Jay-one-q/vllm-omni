@@ -147,10 +147,14 @@ class PidInferenceModel(nn.Module):
             caption = [caption]
         B = len(caption)
 
+        # Cast inputs to float32 to match the original PixelDiTModel tensor_kwargs
+        # (precision=float32); the autocast(bf16) context inside _sample_loop handles
+        # mixed-precision matmuls. Feeding bf16 directly skips the float32 container
+        # the student was calibrated against.
         caption_embs = self.text_encoder.encode(caption)
-        caption_embs = caption_embs.to(device="cuda", dtype=torch.bfloat16)
+        caption_embs = caption_embs.to(device="cuda", dtype=torch.float32)
 
-        lq_latent = lq_latent.to(device="cuda", dtype=torch.bfloat16)
+        lq_latent = lq_latent.to(device="cuda", dtype=torch.float32)
         degrade_sigma_tensor = torch.full(
             (B,), float(degrade_sigma), device="cuda", dtype=torch.float32
         )

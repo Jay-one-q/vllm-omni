@@ -22,13 +22,20 @@ from typing import Literal
 # Shared PixDiT_T2I backbone args (identical across all backbones)
 # ---------------------------------------------------------------------------
 
+# pixel_attn_hidden_size / pixel_num_groups intentionally omitted: PiD's
+# PID_SR4X config does not set them, so PixDiT_T2I falls back to
+# hidden_size (1536) / num_groups (24). Setting them to other values
+# (e.g. 1152/16) changes PiTBlock's compress_to_attn / expand_from_attn
+# / RotaryAttention weight shapes, so the checkpoint weights mismatch and
+# get silently skipped under strict=False loading — the pixel pathway
+# then runs on random init, producing blurry/distorted output.
+# repa_encoder_index=6 matches PID_SR4X (REPA loss is training-only, but
+# kept for checkpoint compatibility).
 _SHARED_BACKBONE = dict(
     in_channels=3,
     num_groups=24,
     hidden_size=1536,
     pixel_hidden_size=16,
-    pixel_attn_hidden_size=1152,
-    pixel_num_groups=16,
     patch_depth=14,
     pixel_depth=2,
     num_text_blocks=4,
@@ -40,7 +47,7 @@ _SHARED_BACKBONE = dict(
     rope_mode="ntk_aware",
     rope_ref_h=1024,
     rope_ref_w=1024,
-    repa_encoder_index=-1,
+    repa_encoder_index=6,
     enable_ed=False,
 )
 
