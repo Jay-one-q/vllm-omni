@@ -10,7 +10,9 @@ FastAPI HTTP layer.
 
 import base64
 import io
+from typing import Any
 
+import numpy as np
 import PIL.Image
 
 SUPPORTED_LAYERED_RESOLUTIONS = (640, 1024)
@@ -123,3 +125,29 @@ def validate_layered_layers(layers: int | None) -> int | None:
             f"{SUPPORTED_LAYERED_LAYERS_RANGE.stop - 1} inclusive."
         )
     return layers
+
+
+def extract_pid_images(result: Any) -> list[PIL.Image.Image]:
+    """Extract PiD super-resolution images from OmniRequestOutput.custom_output.
+
+    When PiD decoding is enabled, the pipeline returns a super-resolved image
+    in ``DiffusionOutput.custom_output["pid_image"]`` (shape ``(B, 3, H, W)``,
+    range ``[0, 1]``).  This helper converts it to PIL images.
+    """
+    custom_output = getattr(result, "custom_output", None)
+    if not isinstance(custom_output, dict):
+        return []
+    pid_tensor = custom_output.get("pid_image")
+    if pid_tensor is None:
+        return []
+    # pid_tensor is (B, 3, H, W) in [0, 1]
+    if hasattr(pid_tensor, "detach"):
+        pid_tensor = pid_tensor.detach().cpu()
+    images: list[PIL.Image.Image] = []
+    for i in range(pid_tensor.shape[0]):
+        frame = pid_tensor[i]
+        if hasattr(frame, "permute"):
+            frame = frame.permute(1, 2, 0).numpy()
+        arr = (np.asarray(frame) * 255).clip(0, 255).astype(np.uint8)
+        images.append(PIL.Image.fromarray(arr))
+    return images

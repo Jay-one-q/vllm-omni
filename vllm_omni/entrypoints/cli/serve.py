@@ -656,23 +656,11 @@ class OmniServeCommand(CLISubcommand):
             help="Path to the PiD distilled checkpoint (.pth).",
         )
         omni_config_group.add_argument(
-            "--pid-experiment",
-            type=str,
-            default="PiD_res2kto4k_sr4x_official_qwenimage_distill_4step",
-            help="PiD experiment name (selects network architecture + config).",
-        )
-        omni_config_group.add_argument(
-            "--pid-local-gemma",
+            "--pid-gemma-path",
             type=str,
             default=None,
             help="Local directory containing gemma-2-2b-it weights. "
-            "When omitted, PiD downloads from HuggingFace.",
-        )
-        omni_config_group.add_argument(
-            "--pid-local-vae",
-            type=str,
-            default=None,
-            help="Path to QwenImage_VAE_2d.pth (PiD's 2D VAE weights).",
+            "When omitted, downloads from HuggingFace.",
         )
         omni_config_group.add_argument(
             "--pid-scale",

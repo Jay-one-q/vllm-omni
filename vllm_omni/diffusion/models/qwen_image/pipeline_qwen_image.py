@@ -355,13 +355,7 @@ class QwenImagePipeline(nn.Module, QwenImageCFGParallelMixin, DiffusionPipelineP
         self._pid_config = self._resolve_pid_config(od_config)
         self._pid_decoder: PidDecoder | None = None
         if self._pid_config is not None and self._pid_config.enabled:
-            self._pid_decoder = PidDecoder(
-                checkpoint_path=self._pid_config.checkpoint_path,
-                experiment=self._pid_config.experiment,
-                local_gemma_path=self._pid_config.local_gemma_path,
-                local_vae_path=self._pid_config.local_vae_path,
-                load_ema_to_reg=self._pid_config.load_ema_to_reg,
-            )
+            self._pid_decoder = PidDecoder(config=self._pid_config)
 
     @staticmethod
     def _resolve_pid_config(

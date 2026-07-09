@@ -98,6 +98,7 @@ from vllm_omni.entrypoints.openai.image_api_utils import (
     SUPPORTED_LAYERED_RESOLUTIONS,
     encode_image_base64,
     encode_image_base64_with_compression,
+    extract_pid_images,
     parse_size,
     validate_layered_layers,
 )
@@ -1688,6 +1689,8 @@ async def generate_images(request: ImageGenerationRequest, raw_request: Request)
                 extra_body["use_system_prompt"] = request.use_system_prompt
             if request.system_prompt is not None:
                 extra_body["system_prompt"] = request.system_prompt
+            if request.pid_decode is not None:
+                extra_body["pid_decode"] = request.pid_decode
 
             generation_result = await chat_handler.generate_diffusion_images(
                 prompt=request.prompt,
@@ -1764,6 +1767,7 @@ async def generate_images(request: ImageGenerationRequest, raw_request: Request)
         )
         _update_if_not_none(gen_params, "generator_device", request.generator_device)
         _update_if_not_none(gen_params, "layers", request.layers)
+        _update_if_not_none(gen_params, "pid_decode", request.pid_decode)
 
         request_id = f"img_gen-{random_uuid()}"
         raw_request.state.request_metadata = RequestResponseMetadata(request_id=request_id)
@@ -1788,6 +1792,8 @@ async def generate_images(request: ImageGenerationRequest, raw_request: Request)
 
         # Extract images from result
         images = _extract_images_from_result(result)
+        # Include PiD super-resolution image from custom_output if present
+        images.extend(extract_pid_images(result))
 
         logger.debug(f"Successfully generated {len(images)} image(s)")
 

@@ -92,7 +92,7 @@ from vllm.utils.collection_utils import as_list
 from vllm.v1.engine.exceptions import EngineDeadError
 
 from vllm_omni.entrypoints.openai.audio_utils_mixin import AudioMixin
-from vllm_omni.entrypoints.openai.image_api_utils import encode_image_base64_with_compression, validate_layered_layers
+from vllm_omni.entrypoints.openai.image_api_utils import encode_image_base64_with_compression, extract_pid_images, validate_layered_layers
 from vllm_omni.entrypoints.openai.protocol import OmniChatCompletionStreamResponse
 from vllm_omni.entrypoints.openai.protocol.audio import AudioResponse, CreateAudio
 from vllm_omni.entrypoints.openai.protocol.images import (
@@ -2655,6 +2655,7 @@ class OmniOpenAIServingChat(OpenAIServingChat, AudioMixin):
             layers=extra_body.get("layers"),
             resolution=extra_body.get("resolution"),
             strength=extra_body.get("strength"),
+            pid_decode=extra_body.get("pid_decode"),
         )
 
         if lora_body and isinstance(lora_body, dict):
@@ -2791,6 +2792,9 @@ class OmniOpenAIServingChat(OpenAIServingChat, AudioMixin):
             )
 
         images = getattr(result.request_output, "images", [])
+        # Include PiD super-resolution images from custom_output
+        images = list(images)
+        images.extend(extract_pid_images(result))
         stage_durations = result.stage_durations
         peak_memory_mb = result.peak_memory_mb
         cot_output = None
@@ -3065,6 +3069,9 @@ class OmniOpenAIServingChat(OpenAIServingChat, AudioMixin):
                 gen_params.layers = layers
             if resolution is not None:
                 gen_params.resolution = resolution
+            pid_decode_body = extra_body.get("pid_decode")
+            if pid_decode_body is not None:
+                gen_params.pid_decode = pid_decode_body
 
             # Pipeline-agnostic escape hatch (mirrors ``extra_params`` on the /v1/videos
             # endpoint in ``serving_video.py``): a single reserved ``extra_args`` dict in

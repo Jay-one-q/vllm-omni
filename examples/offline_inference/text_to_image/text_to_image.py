@@ -312,8 +312,9 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help=(
             "Enable PiD super-resolution decoding. When set, the LDM x_0 latent "
-            "is decoded via PiD into a higher-resolution RGB image instead of "
-            "the VAE. Requires the external `pid` package (pip install -e /path/to/PiD)."
+            "is decoded via PiD into a higher-resolution RGB image alongside "
+            "the VAE output. PiD network code is self-contained in vllm-omni; "
+            "no external PiD package is required."
         ),
     )
     parser.add_argument(
@@ -326,27 +327,12 @@ def parse_args() -> argparse.Namespace:
         help="Path to the PiD distilled checkpoint (.pth).",
     )
     parser.add_argument(
-        "--pid-experiment",
-        type=str,
-        default="PiD_res2kto4k_sr4x_official_qwenimage_distill_4step",
-        help="PiD experiment name (selects network architecture + config).",
-    )
-    parser.add_argument(
-        "--pid-local-gemma",
+        "--pid-gemma-path",
         type=str,
         default=None,
         help=(
-            "Local directory containing gemma-2-2b-it weights. When omitted, PiD "
-            "downloads the encoder from HuggingFace (requires network access)."
-        ),
-    )
-    parser.add_argument(
-        "--pid-local-vae",
-        type=str,
-        default=None,
-        help=(
-            "Path to QwenImage_VAE_2d.pth (PiD's 2D VAE weights). When omitted, "
-            "PiD uses the relative default ./checkpoints/QwenImage_VAE_2d.pth."
+            "Local directory containing gemma-2-2b-it weights. "
+            "When omitted, downloads from HuggingFace (requires network access)."
         ),
     )
     parser.add_argument(
@@ -471,9 +457,7 @@ def main():
         omni_kwargs["pid_decode"] = {
             "enabled": True,
             "checkpoint_path": args.pid_checkpoint,
-            "experiment": args.pid_experiment,
-            "local_gemma_path": args.pid_local_gemma,
-            "local_vae_path": args.pid_local_vae,
+            "gemma_model_path": args.pid_gemma_path or "",
             "scale": args.pid_scale,
             "num_steps": args.pid_num_steps,
             "seed": args.pid_seed,

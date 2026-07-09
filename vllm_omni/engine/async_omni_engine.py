@@ -121,9 +121,7 @@ _STARTUP_POLL_INTERVAL_S = 1.0
 # names. Used in ``__init__`` to pack individual flags into ``pid_decode`` dict.
 _PID_CLI_TO_CFG: list[tuple[str, str]] = [
     ("pid_checkpoint", "checkpoint_path"),
-    ("pid_experiment", "experiment"),
-    ("pid_local_gemma", "local_gemma_path"),
-    ("pid_local_vae", "local_vae_path"),
+    ("pid_gemma_path", "gemma_model_path"),
     ("pid_scale", "scale"),
     ("pid_num_steps", "num_steps"),
     ("pid_seed", "seed"),
