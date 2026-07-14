@@ -28,6 +28,13 @@ class PidInferenceModel(nn.Module):
         net_kwargs: Passed directly to PidNet.__init__.
         gemma_model_id: Local path or HF ID for gemma-2-2b-it.
         sampling_overrides: Optional overrides for PID_SAMPLING_CONFIG.
+        precision: Compute precision preset, one of "float32" / "float16" /
+            "bfloat16". Mirrors PixelDiTModelConfig.precision. For any
+            non-float32 value, the tensor container stays float32 (matching
+            the student's calibrated distribution) and matmuls run under
+            ``torch.autocast(..., dtype=precision)``. ``"float32"`` disables
+            autocast entirely (pure fp32 forward), used for precision
+            baselines or checkpoints that overflow under bf16/fp16.
     """
 
     def __init__(
@@ -35,6 +42,7 @@ class PidInferenceModel(nn.Module):
         net_kwargs: dict,
         gemma_model_id: str,
         sampling_overrides: dict | None = None,
+        precision: str = "bfloat16",
     ):
         super().__init__()
         self.net = PidNet(**net_kwargs)
@@ -45,10 +53,39 @@ class PidInferenceModel(nn.Module):
             samp.update(sampling_overrides)
         self._cfg = type("Cfg", (), samp)()
 
-        self.autocast_dtype = torch.bfloat16
+        # Replicate PixelDiTModel.__init__ precision resolution: the tensor
+        # container is always float32; for non-float32 precision, matmuls run
+        # under autocast(dtype=requested). precision="float32" disables
+        # autocast entirely (pure fp32 forward).
+        _dtype_map = {
+            "float32": torch.float32,
+            "float16": torch.float16,
+            "bfloat16": torch.bfloat16, 
+        }
+        if precision not in _dtype_map:
+            raise ValueError(
+                f"precision must be one of {list(_dtype_map)}, got {precision!r}"
+            )
+        requested_dtype = _dtype_map[precision]
+        if requested_dtype != torch.float32:
+            self.autocast_dtype = requested_dtype
+            self.precision = torch.float32
+        else:
+            self.autocast_dtype = None
+            self.precision = torch.float32
+        self.tensor_kwargs = {"device": "cuda", "dtype": self.precision}
+
+        # torch.compile support (opt-in via enable_compile()).
+        # Compilation is lazy and cached per output resolution (H, W).
+        self._compile_enabled = False
+        self._compiled_nets: dict[tuple[int, int], torch.nn.Module] = {}
+
         logger.info(
-            "PidInferenceModel: net params=%s",
+            "PidInferenceModel: net params=%s, precision=%s (autocast=%s, container=%s)",
             f"{sum(p.numel() for p in self.net.parameters()):,}",
+            precision,
+            self.autocast_dtype,
+            self.precision,
         )
 
     # ------------------------------------------------------------------
@@ -62,6 +99,49 @@ class PidInferenceModel(nn.Module):
         s = [x_t.shape[0]] + [1] * (x_t.ndim - 1)
         t_shaped = t.double().view(*s)
         return (x_t.double() - t_shaped * v.double()).to(x_t.dtype)
+
+    # ------------------------------------------------------------------
+    # torch.compile (opt-in)
+    # ------------------------------------------------------------------
+
+    def enable_compile(self, mode: str = "default") -> None:
+        """Arm torch.compile for :attr:`net`.
+
+        Compilation is lazy — the actual ``torch.compile`` call happens on the
+        first ``generate_samples_from_batch`` for each output resolution and
+        is cached thereafter.  ``mode`` is passed directly to
+        ``torch.compile``; use ``"max-autotune"`` for maximum throughput at
+        the cost of a much slower first compile.
+        """
+        self._compile_enabled = True
+        self._compile_mode = mode
+        logger.info("PidInferenceModel: torch.compile armed (lazy, per resolution).")
+
+    def _maybe_compile_net(
+        self, image_h: int, image_w: int, text_len: int
+    ) -> torch.nn.Module:
+        """Return compiled net for this shape, or eager net if compile is off."""
+        if not self._compile_enabled:
+            return self.net
+        key = (int(image_h), int(image_w))
+        compiled = self._compiled_nets.get(key)
+        if compiled is None:
+            logger.info(
+                "PidInferenceModel: warming pos caches + compiling net for %dx%d",
+                image_h, image_w,
+            )
+            self.net.precompute_positional_caches(
+                image_height=image_h,
+                image_width=image_w,
+                text_length=text_len,
+                device="cuda",
+                pixel_dtype=self.precision,
+            )
+            compiled = torch.compile(
+                self.net, mode=self._compile_mode, dynamic=False
+            )
+            self._compiled_nets[key] = compiled
+        return compiled
 
     # ------------------------------------------------------------------
     # Timestep schedule
@@ -90,6 +170,7 @@ class PidInferenceModel(nn.Module):
         caption_embs: torch.Tensor,
         lq_latent: torch.Tensor,
         degrade_sigma: torch.Tensor,
+        net: torch.nn.Module | None = None,
         generator: torch.Generator | None = None,
     ) -> torch.Tensor:
         B = noise.shape[0]
@@ -99,21 +180,40 @@ class PidInferenceModel(nn.Module):
             if self.autocast_dtype
             else nullcontext()
         )
+        if net is None:
+            net = self.net
         x = noise
 
+        # vllm-omni may have left allow_tf32=False after the LDM stage;
+        # PiD internally runs under autocast(bf16) but the outer matmul
+        # dispatch still depends on this flag for intermediate ops.
+        if not torch.backends.cuda.matmul.allow_tf32:
+            logger.warning(
+                "PiD: torch.backends.cuda.matmul.allow_tf32 is False — "
+                "forcing to True for this call (A100 matmul depends on tf32)."
+            )
+            torch.backends.cuda.matmul.allow_tf32 = True
+
+        step_times = []
         with autocast_ctx:
-            for t_cur, t_next in zip(t_list[:-1], t_list[1:]):
+            for step_idx, (t_cur, t_next) in enumerate(zip(t_list[:-1], t_list[1:])):
                 t_cur_batch = t_cur.expand(B)
                 t_scaled = t_cur_batch * timescale
 
-                v_pred = self.net(
+                evt_start = torch.cuda.Event(enable_timing=True)
+                evt_net = torch.cuda.Event(enable_timing=True)
+                evt_v2x = torch.cuda.Event(enable_timing=True)
+                evt_start.record()
+                v_pred = net(
                     x, t_scaled, caption_embs,
                     lq_latent=lq_latent,
                     degrade_sigma=degrade_sigma,
                 )
+                evt_net.record()
 
                 if t_next.item() > 0:
                     x0_pred = self._velocity_to_x0(x, v_pred, t_cur_batch)
+                    evt_v2x.record()
                     eps_infer = torch.randn(
                         x0_pred.shape, device=x0_pred.device,
                         dtype=x0_pred.dtype, generator=generator,
@@ -121,7 +221,21 @@ class PidInferenceModel(nn.Module):
                     x = (1.0 - t_next) * x0_pred + t_next * eps_infer
                 else:
                     x = self._velocity_to_x0(x, v_pred, t_cur_batch)
+                    evt_v2x.record()
 
+                torch.cuda.synchronize()
+                step_ms = evt_start.elapsed_time(evt_v2x)
+                net_ms = evt_start.elapsed_time(evt_net)
+                v2x_ms = evt_net.elapsed_time(evt_v2x)
+                step_times.append((step_ms, net_ms, v2x_ms))
+
+        logger.info(
+            "PiD _sample_loop timings (ms): steps=%s, net_avg=%.0f, v2x_avg=%.0f",
+            [f"{s:.0f}" for s, _, _ in step_times],
+            sum(n for _, n, _ in step_times) / len(step_times),
+            sum(v for _, _, v in step_times) / len(step_times),
+        )
+        torch.cuda.empty_cache()
         return x
 
     # ------------------------------------------------------------------
@@ -147,31 +261,36 @@ class PidInferenceModel(nn.Module):
             caption = [caption]
         B = len(caption)
 
-        # Cast inputs to float32 to match the original PixelDiTModel tensor_kwargs
-        # (precision=float32); the autocast(bf16) context inside _sample_loop handles
-        # mixed-precision matmuls. Feeding bf16 directly skips the float32 container
-        # the student was calibrated against.
+        # Use tensor_kwargs (always device="cuda", dtype=float32 container)
+        # to match the original PixelDiTModel: the student was calibrated
+        # against a float32 container; autocast(...) inside _sample_loop
+        # handles mixed-precision matmuls. Feeding bf16 directly skips the
+        # float32 container and shifts the input distribution.
         caption_embs = self.text_encoder.encode(caption)
-        caption_embs = caption_embs.to(device="cuda", dtype=torch.float32)
+        caption_embs = caption_embs.to(**self.tensor_kwargs)
 
-        lq_latent = lq_latent.to(device="cuda", dtype=torch.float32)
+        lq_latent = lq_latent.to(**self.tensor_kwargs)
         degrade_sigma_tensor = torch.full(
-            (B,), float(degrade_sigma), device="cuda", dtype=torch.float32
+            (B,), float(degrade_sigma), **self.tensor_kwargs
         )
 
         gen = torch.Generator(device="cuda").manual_seed(int(seed))
         img_h, img_w = output_size
         noise = torch.randn(B, 3, img_h, img_w, device="cuda", generator=gen)
 
+        # Resolve the net to use: compiled (per-resolution cache) or eager.
+        text_len = min(caption_embs.shape[1], self.net.txt_max_length)
+        net = self._maybe_compile_net(img_h, img_w, text_len)
+
         effective_steps = num_steps or self._cfg.student_sample_steps
 
         if effective_steps == 1:
             t_student = torch.full(
                 (B,), self._cfg.student_t_list[0],
-                device="cuda", dtype=torch.float32,
+                **self.tensor_kwargs,
             )
             t_scaled = t_student * self._cfg.fm_timescale
-            v = self.net(
+            v = net(
                 noise, t_scaled, caption_embs,
                 lq_latent=lq_latent,
                 degrade_sigma=degrade_sigma_tensor,
@@ -181,7 +300,7 @@ class PidInferenceModel(nn.Module):
             t_list = self._get_t_list(torch.device("cuda"), effective_steps)
             x0 = self._sample_loop(
                 noise, t_list, caption_embs, lq_latent,
-                degrade_sigma_tensor, generator=gen,
+                degrade_sigma_tensor, net=net, generator=gen,
             )
 
         return x0.clamp(-1, 1)

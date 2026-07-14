@@ -53,6 +53,11 @@ class PidDecodeConfig:
     seed: int = 0
     # Noise level injected into the LQ latent. 0.0 means the clean x_0 latent.
     degrade_sigma: float = 0.0
+    # Compute precision preset: "bfloat16" (default, matches distilled
+    # checkpoint training), "float16" (fp16 autocast), or "float32" (pure
+    # fp32 forward, disables autocast). The tensor container is always
+    # float32; non-float32 values enable autocast for matmuls only.
+    precision: str = "bfloat16"
 
 
 # ---------------------------------------------------------------------------
