@@ -40,13 +40,21 @@ class PidNet(PixDiT_T2I):
         lq_in_channels: LQ image channels (3 for RGB, 0 to disable image branch).
         lq_latent_channels: LQ latent channels (e.g. 16 for Wan VAE, 0 to disable).
         lq_hidden_dim: internal projection hidden dimension.
-        lq_num_res_blocks: number of ResBlocks per branch for deeper feature extraction.
-        lq_gate_type: "sigma_aware_per_token_per_dim" only.
+        lq_num_res_blocks: ResBlocks per LQ-projection branch.
+        lq_latent_unpatchify_factor: optional unpatchify factor for patchified
+            normalized latents in LQProjection2D. Flux2 uses 2.
+        lq_aux_rgb_head_latent_block_idx: 1-based ResBlock index for aux RGB
+            supervision. -1 uses the final shared feature. Training-only.
+        lq_conv_padding_mode: padding mode for all Conv2d layers in LQ projection.
+        lq_gate_type: "sigma_aware_per_token" | "sigma_aware_per_token_per_dim".
         lq_interval: inject every N blocks.
         zero_init_lq: zero-init all LQ projections for safe pretrained start.
         train_lq_proj_only: freeze base T2I, train only LQ projection modules.
         sr_scale: super-resolution scale factor (default 4).
         latent_spatial_down_factor: VAE spatial downscale factor (default 8).
+        pit_lq_inject: inject LQ features into PiT pixel blocks via a dedicated
+            output head from the same LQ projection CNN backbone. Uses the same
+            gate type as lq_gate_type.
     """
 
     def __init__(
@@ -83,6 +91,11 @@ class PidNet(PixDiT_T2I):
         lq_latent_channels: int = 0,
         lq_hidden_dim: int = 512,
         lq_num_res_blocks: int = 4,
+        # --- SR-specific args used in PiD v1.5 ---
+        lq_latent_unpatchify_factor: int = 1,
+        lq_aux_rgb_head: bool = False,
+        lq_aux_rgb_head_latent_block_idx: int = -1,
+        lq_conv_padding_mode: str = "zeros",
         lq_gate_type: str = "sigma_aware_per_token_per_dim",
         lq_interval: int = 1,
         zero_init_lq: bool = True,
@@ -90,10 +103,7 @@ class PidNet(PixDiT_T2I):
         sr_scale: int = 4,
         latent_spatial_down_factor: int = 8,
         # --- PiT LQ injection args ---
-        # Inject LQ features into PiT pixel blocks via a dedicated output head
-        # from the same LQ projection CNN backbone. Added to s_cond before PiT loop.
         pit_lq_inject: bool = False,
-        pit_lq_gate_type: str = "sigma_aware_per_token_per_dim",
     ):
         super().__init__(
             in_channels=in_channels,
@@ -129,8 +139,10 @@ class PidNet(PixDiT_T2I):
         self.lq_inject_mode = lq_inject_mode
         self.sr_scale = sr_scale
         self.train_lq_proj_only = train_lq_proj_only
+        self.lq_conv_padding_mode = lq_conv_padding_mode
 
         num_lq_outputs = (patch_depth + lq_interval - 1) // lq_interval
+        self.num_lq_outputs = num_lq_outputs
 
         self.pit_lq_inject = pit_lq_inject
 
@@ -142,19 +154,23 @@ class PidNet(PixDiT_T2I):
             patch_size=patch_size,
             sr_scale=sr_scale,
             latent_spatial_down_factor=latent_spatial_down_factor,
+            latent_unpatchify_factor=lq_latent_unpatchify_factor,
             num_res_blocks=lq_num_res_blocks,
             num_outputs=num_lq_outputs,
             gate_type=lq_gate_type,
             interval=lq_interval,
             zero_init=zero_init_lq,
+            conv_padding_mode=lq_conv_padding_mode,
             pit_output=pit_lq_inject,
+            lq_aux_rgb_head=lq_aux_rgb_head,
+            lq_aux_rgb_head_latent_block_idx=lq_aux_rgb_head_latent_block_idx,
         )
 
         # PiT LQ gate (applied to s_cond before pixel blocks)
         if pit_lq_inject:
             from .lq_projection_2d import _build_gate
 
-            self.pit_lq_gate = _build_gate(pit_lq_gate_type, hidden_size, zero_init=zero_init_lq)
+            self.pit_lq_gate = _build_gate(lq_gate_type, hidden_size, zero_init=zero_init_lq)
         else:
             self.pit_lq_gate = None
 
@@ -172,20 +188,50 @@ class PidNet(PixDiT_T2I):
         self.lq_proj.init_weights()
         logger.info("LQ projection init_weights complete")
 
-    def _compute_lq_features(self, lq_video_or_image, lq_latent, lq_mask, Hs, Ws):
-        lq_features = self.lq_proj(
+    def _split_lq_outputs(self, lq_outputs):
+        """Split LQ projection outputs into (lq_features, pit_lq_feature)."""
+        lq_features = lq_outputs[: self.num_lq_outputs]
+        cursor = self.num_lq_outputs
+
+        pit_lq_feature = None
+        if self.pit_lq_inject:
+            if cursor >= len(lq_outputs):
+                raise RuntimeError("pit_lq_inject=True but LQ projection did not return a PiT LQ feature.")
+            pit_lq_feature = lq_outputs[cursor]
+            cursor += 1
+
+        if cursor != len(lq_outputs):
+            raise RuntimeError(f"LQ projection returned {len(lq_outputs)} outputs, but consumed {cursor}.")
+        return lq_features, pit_lq_feature
+
+    def _compute_lq_features(self, lq_video_or_image, lq_latent, lq_mask, Hs, Ws, return_lq_aux=False):
+        lq_kwargs = dict(
             lq_video_or_image=lq_video_or_image,
             lq_latent=lq_latent,
             target_pH=Hs,
             target_pW=Ws,
         )
+        if return_lq_aux:
+            if not getattr(self.lq_proj, "lq_aux_rgb_head_enabled", False):
+                raise RuntimeError("return_lq_aux=True requires an LQ projection with lq_aux_rgb_head enabled.")
+            lq_kwargs["return_aux"] = True
+        lq_result = self.lq_proj(**lq_kwargs)
+        if return_lq_aux:
+            lq_features, lq_aux = lq_result
+        else:
+            lq_features = lq_result
+            lq_aux = None
         if lq_mask is not None:
             lq_features = [f * lq_mask.view(-1, 1, 1) for f in lq_features]
+            if lq_aux is not None and lq_aux.get("pred_lq_rgb") is not None:
+                lq_aux["pred_lq_rgb"] = lq_aux["pred_lq_rgb"] * lq_mask.view(-1, 1, 1, 1)
         # Under CP, lq_features are produced at full L (LQ inputs are replicated
         # across CP ranks). Split each along the token axis so they line up with
         # the rank-local image stream the patch blocks consume.
         if self._cp_group is not None:
             lq_features = [split_inputs_cp(f, seq_dim=1, cp_group=self._cp_group) for f in lq_features]
+        if return_lq_aux:
+            return lq_features, lq_aux
         return lq_features
 
     def _run_patch_blocks(
@@ -278,6 +324,7 @@ class PidNet(PixDiT_T2I):
         # --- Feature extraction for GAN discriminator ---
         feature_indices=None,
         return_features_early: bool = False,
+        return_lq_aux: bool = False,
     ):
         B, _, H, W = x.shape
         Hs = H // self.patch_size
@@ -296,7 +343,17 @@ class PidNet(PixDiT_T2I):
 
         # Compute LQ features (split along L internally when CP is active).
         has_lq = lq_video_or_image is not None or lq_latent is not None
-        lq_features = self._compute_lq_features(lq_video_or_image, lq_latent, lq_mask, Hs, Ws) if has_lq else None
+        lq_features = None
+        pit_lq_feature = None
+        lq_aux = None
+        if has_lq:
+            if return_lq_aux:
+                lq_outputs, lq_aux = self._compute_lq_features(
+                    lq_video_or_image, lq_latent, lq_mask, Hs, Ws, return_lq_aux=True
+                )
+            else:
+                lq_outputs = self._compute_lq_features(lq_video_or_image, lq_latent, lq_mask, Hs, Ws)
+            lq_features, pit_lq_feature = self._split_lq_outputs(lq_outputs)
 
         collected_features = None  # populated by _run_patch_blocks when feature_indices is set
 
@@ -433,13 +490,14 @@ class PidNet(PixDiT_T2I):
                 s = torch.cat([s, s.new_zeros(B, pad_len, s.shape[2])], dim=1)
 
         # Pixel pathway with optional PiT LQ injection — operates on rank-local
-        # patches under CP. lq_features[-1] was already split along L in
-        # `_compute_lq_features`, so its B*L_local view lines up with s.
-        s_cond = s.reshape(B * L_local, self.hidden_size)
-        if self.pit_lq_inject and lq_features is not None:
-            pit_lq = lq_features[-1].reshape(B * L_local, self.hidden_size)
-            sigma_flat = degrade_sigma.repeat_interleave(L_local) if degrade_sigma is not None else None
-            s_cond = self.pit_lq_gate(s_cond, pit_lq, sigma=sigma_flat)
+        # patches under CP. PiT-specific LQ features were already split along L
+        # in `_compute_lq_features`, so their token axis lines up with s. Keep
+        # the gate inputs as [B, L_local, D]; sigma-aware gates expect sigma as
+        # [B] and would broadcast to [B*L, B*L, D] if called on flattened tokens.
+        s_cond_tokens = s
+        if self.pit_lq_inject and pit_lq_feature is not None:
+            s_cond_tokens = self.pit_lq_gate(s_cond_tokens, pit_lq_feature, sigma=degrade_sigma)
+        s_cond = s_cond_tokens.reshape(B * L_local, self.hidden_size)
 
         # Pixel embedder runs on the full image (cheap; identical across CP
         # ranks). Reshape and slice to the rank-local subset of patches so that
@@ -467,5 +525,7 @@ class PidNet(PixDiT_T2I):
 
         # Return (output, features) when feature extraction is enabled (without early exit)
         if feature_indices is not None and collected_features is not None:
-            return output, self._unpatchify_features(collected_features, Hs, Ws)
+            output = (output, self._unpatchify_features(collected_features, Hs, Ws))
+        if return_lq_aux:
+            return output, lq_aux
         return output

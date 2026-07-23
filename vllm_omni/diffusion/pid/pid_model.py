@@ -69,7 +69,7 @@ class PidInferenceModel(nn.Module):
         requested_dtype = _dtype_map[precision]
         if requested_dtype != torch.float32:
             self.autocast_dtype = requested_dtype
-            self.precision = torch.float32
+            self.precision = requested_dtype
         else:
             self.autocast_dtype = None
             self.precision = torch.float32
@@ -89,16 +89,46 @@ class PidInferenceModel(nn.Module):
         )
 
     # ------------------------------------------------------------------
-    # Velocity <-> x0 conversion
+    # Net output <-> (x0, velocity) conversion
     # ------------------------------------------------------------------
+
+    def _net_output_to_x0(
+        self,
+        x_t: torch.Tensor,
+        net_output: torch.Tensor,
+        t: torch.Tensor,
+        prediction_type: str = "velocity",
+    ) -> torch.Tensor:
+        """Convert net output to x0 estimate."""
+        if prediction_type == "x0":
+            return net_output.to(x_t.dtype)
+        if prediction_type == "velocity":
+            s = [x_t.shape[0]] + [1] * (x_t.ndim - 1)
+            t_shaped = t.double().view(*s)
+            return (x_t.double() - t_shaped * net_output.double()).to(x_t.dtype)
+        raise ValueError(f"Invalid prediction_type: {prediction_type}")
+
+    def _net_output_to_velocity(
+        self,
+        x_t: torch.Tensor,
+        net_output: torch.Tensor,
+        t: torch.Tensor,
+        prediction_type: str = "velocity",
+    ) -> torch.Tensor:
+        """Convert net output to velocity estimate."""
+        if prediction_type == "velocity":
+            return net_output
+        if prediction_type == "x0":
+            s = [x_t.shape[0]] + [1] * (x_t.ndim - 1)
+            t_shaped = t.double().view(*s).clamp(min=5e-2)
+            return ((x_t.double() - net_output.double()) / t_shaped).to(x_t.dtype)
+        raise ValueError(f"Invalid prediction_type: {prediction_type}")
 
     def _velocity_to_x0(
         self, x_t: torch.Tensor, v: torch.Tensor, t: torch.Tensor
     ) -> torch.Tensor:
-        """velocity -> x0: x0 = x_t - t * v"""
-        s = [x_t.shape[0]] + [1] * (x_t.ndim - 1)
-        t_shaped = t.double().view(*s)
-        return (x_t.double() - t_shaped * v.double()).to(x_t.dtype)
+        """velocity -> x0: x0 = x_t - t * v (uses config prediction_type)."""
+        return self._net_output_to_x0(x_t, v, t, self._cfg.prediction_type)
 
     # ------------------------------------------------------------------
     # torch.compile (opt-in)
@@ -175,6 +205,8 @@ class PidInferenceModel(nn.Module):
     ) -> torch.Tensor:
         B = noise.shape[0]
         timescale = self._cfg.fm_timescale
+        sample_type = getattr(self._cfg, "student_sample_type", "sde")
+        prediction_type = getattr(self._cfg, "prediction_type", "velocity")
         autocast_ctx = (
             torch.autocast("cuda", dtype=self.autocast_dtype)
             if self.autocast_dtype
@@ -184,58 +216,36 @@ class PidInferenceModel(nn.Module):
             net = self.net
         x = noise
 
-        # vllm-omni may have left allow_tf32=False after the LDM stage;
-        # PiD internally runs under autocast(bf16) but the outer matmul
-        # dispatch still depends on this flag for intermediate ops.
-        if not torch.backends.cuda.matmul.allow_tf32:
-            logger.warning(
-                "PiD: torch.backends.cuda.matmul.allow_tf32 is False — "
-                "forcing to True for this call (A100 matmul depends on tf32)."
-            )
-            torch.backends.cuda.matmul.allow_tf32 = True
-
-        step_times = []
         with autocast_ctx:
-            for step_idx, (t_cur, t_next) in enumerate(zip(t_list[:-1], t_list[1:])):
+            for t_cur, t_next in zip(t_list[:-1], t_list[1:]):
                 t_cur_batch = t_cur.expand(B)
                 t_scaled = t_cur_batch * timescale
 
-                evt_start = torch.cuda.Event(enable_timing=True)
-                evt_net = torch.cuda.Event(enable_timing=True)
-                evt_v2x = torch.cuda.Event(enable_timing=True)
-                evt_start.record()
                 v_pred = net(
                     x, t_scaled, caption_embs,
                     lq_latent=lq_latent,
                     degrade_sigma=degrade_sigma,
                 )
-                evt_net.record()
 
                 if t_next.item() > 0:
-                    x0_pred = self._velocity_to_x0(x, v_pred, t_cur_batch)
-                    evt_v2x.record()
-                    eps_infer = torch.randn(
-                        x0_pred.shape, device=x0_pred.device,
-                        dtype=x0_pred.dtype, generator=generator,
-                    )
-                    x = (1.0 - t_next) * x0_pred + t_next * eps_infer
+                    if sample_type == "ode":
+                        v_for_step = self._net_output_to_velocity(
+                            x, v_pred, t_cur_batch, prediction_type
+                        )
+                        dt = t_next - t_cur
+                        x = x + dt * v_for_step
+                    else:
+                        x0_pred = self._net_output_to_x0(x, v_pred, t_cur_batch, prediction_type)
+                        eps_infer = torch.randn(
+                            x0_pred.shape, device=x0_pred.device,
+                            dtype=x0_pred.dtype, generator=generator,
+                        )
+                        s = [B] + [1] * (x.ndim - 1)
+                        t_next_bcast = t_next.reshape(1).expand(s)
+                        x = (1.0 - t_next_bcast) * x0_pred + t_next_bcast * eps_infer
                 else:
-                    x = self._velocity_to_x0(x, v_pred, t_cur_batch)
-                    evt_v2x.record()
+                    x = self._net_output_to_x0(x, v_pred, t_cur_batch, prediction_type)
 
-                torch.cuda.synchronize()
-                step_ms = evt_start.elapsed_time(evt_v2x)
-                net_ms = evt_start.elapsed_time(evt_net)
-                v2x_ms = evt_net.elapsed_time(evt_v2x)
-                step_times.append((step_ms, net_ms, v2x_ms))
-
-        logger.info(
-            "PiD _sample_loop timings (ms): steps=%s, net_avg=%.0f, v2x_avg=%.0f",
-            [f"{s:.0f}" for s, _, _ in step_times],
-            sum(n for _, n, _ in step_times) / len(step_times),
-            sum(v for _, _, v in step_times) / len(step_times),
-        )
-        torch.cuda.empty_cache()
         return x
 
     # ------------------------------------------------------------------
@@ -251,8 +261,14 @@ class PidInferenceModel(nn.Module):
         degrade_sigma: float = 0.0,
         num_steps: int = 4,
         seed: int = 0,
+        cfg_scale: float | None = None,
     ) -> torch.Tensor:
         """Run PiD decode.
+
+        Args:
+            cfg_scale: accepted for API compatibility; the distilled student
+                does not use CFG (guidance is baked in during distillation).
+                Defaults to the config value (5.0) but is a no-op.
 
         Returns:
             (B, 3, H, W) tensor in [-1, 1].
@@ -260,6 +276,12 @@ class PidInferenceModel(nn.Module):
         if isinstance(caption, str):
             caption = [caption]
         B = len(caption)
+
+        # Some upstream pipelines may leave allow_tf32=False, which penalises
+        # every fp32 Linear (AdaLN projections, controlnet gate) even under
+        # autocast(bf16).  Restoring it costs nothing and keeps A100 perf
+        # predictable.
+        #torch.backends.cuda.matmul.allow_tf32 = True
 
         # Use tensor_kwargs (always device="cuda", dtype=float32 container)
         # to match the original PixelDiTModel: the student was calibrated

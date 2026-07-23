@@ -95,8 +95,8 @@ class PidDecoder:
         )
         load_pid_checkpoint(self._model, cfg.checkpoint_path)
         self._model.eval()
-        self._model.to("cuda")
-        logger.info("PiD model loaded (PidNet + Gemma text encoder) and resident.")
+        self._model.to(device=self._device, dtype=torch.bfloat16)
+        logger.info("PiD model loaded (PidNet + Gemma text encoder) and resident on %s.", self._device)
 
     # -- inference ---------------------------------------------------------
 

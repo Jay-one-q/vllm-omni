@@ -38,8 +38,8 @@ _SHARED_BACKBONE = dict(
     use_text_rope=True,
     text_rope_theta=10000.0,
     rope_mode="ntk_aware",
-    rope_ref_h=1024,
-    rope_ref_w=1024,
+    rope_ref_h=2048,
+    rope_ref_w=2048,
     repa_encoder_index=6,
     enable_ed=False,
 )
@@ -48,17 +48,23 @@ _SHARED_BACKBONE = dict(
 # Shared PidNet SR args (same across all backbones, except LQ channels/spacing)
 # ---------------------------------------------------------------------------
 
+# v1pt5 defaults (pid_sr4x_v1pt5): replicate padding, per-token gate, PiT
+# injection, aux RGB head, deeper LQ projection.
 _SHARED_PID_SR = dict(
     lq_inject_mode="controlnet",
     lq_in_channels=0,
-    lq_hidden_dim=512,
+    lq_hidden_dim=1024,
     lq_num_res_blocks=4,
-    lq_gate_type="sigma_aware_per_token_per_dim",
+    lq_latent_unpatchify_factor=1,
+    lq_aux_rgb_head=True,
+    lq_aux_rgb_head_latent_block_idx=-1,
+    lq_conv_padding_mode="replicate",
+    lq_gate_type="sigma_aware_per_token",
     lq_interval=2,
     zero_init_lq=True,
-    train_lq_proj_only=False,
+    train_lq_proj_only=True,
     sr_scale=4,
-    pit_lq_inject=False,
+    pit_lq_inject=True,
 )
 
 
@@ -94,10 +100,10 @@ PID_SAMPLING_CONFIG = dict(
     student_input_mode="teacher_forcing",
     prediction_type="velocity",
     fm_timescale=1000.0,
-    cfg_scale=1.0,
+    cfg_scale=5.0,
     dynamic_shift=dict(
-        base_shift=4.0,
-        base_image_size_for_shift_calc=1024,
+        base_shift=6.0,
+        base_image_size_for_shift_calc=2048,
     ),
 )
 
