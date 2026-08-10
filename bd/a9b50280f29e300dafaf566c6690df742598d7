@@ -1,0 +1,58 @@
+vllm_omni/diffusion/pid/text_encoder.py
+  s_02e5951abf64d5::t_2de73ef60fe24e 86
+  s_02e5951abf64d5::t_3617deb6bd108e 20
+vllm_omni/diffusion/pid/mixin.py
+  s_02e5951abf64d5::t_6c3d4ed8350b81 122
+  h_cc1d3e9b6b1826 123
+vllm_omni/diffusion/pid/decoder.py
+  s_02e5951abf64d5::t_a1057021dfdecd 25
+  h_cc1d3e9b6b1826 75,102,109
+  s_02e5951abf64d5::t_4f50851b4a1ab1 24
+vllm_omni/diffusion/pid/context_parallel.py
+  s_02e5951abf64d5::t_8e4b3c5d066615 136,138
+vllm_omni/diffusion/pid/pid_model.py
+  s_02e5951abf64d5::t_87e4804635d2c4 15
+  s_02e5951abf64d5::t_cc21827a3b5c7f 153,169
+  s_02e5951abf64d5::t_585ca1642fb7bf 72
+  s_02e5951abf64d5::t_83b383b1e7a114 142-147
+  s_02e5951abf64d5::t_4eeabafa5ff308 213
+  s_02e5951abf64d5::t_a5da0632ea35d6 288-295,297,299,301,304,306,310,317,327
+vllm_omni/diffusion/models/qwen_image/pipeline_qwen_image.py
+  s_02e5951abf64d5::t_29c4bc038126e9 902
+  s_02e5951abf64d5::t_b768e985c359bf 1003-1005
+  h_cc1d3e9b6b1826 1095-1096
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "bda9b50280f29e300dafaf566c6690df742598d7",
+  "prompts": {},
+  "humans": {
+    "h_cc1d3e9b6b1826": {
+      "author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  },
+  "sessions": {
+    "s_02e5951abf64d5": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a747614ee1c14eda1ca0f83",
+        "model": "glm-5.2"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "edit_kind": "file_edit",
+        "source_scene": "agent",
+        "session_id": "6a747614ee1c14eda1ca0f83",
+        "external_session_id": "6a747614ee1c14eda1ca0f83",
+        "tool_type": "builtin",
+        "tool_id": "icube:applyChatSnapshotPatch",
+        "client_type": "ide",
+        "dedupe_key": "6a747614ee1c14eda1ca0f83:6a759febee1c14eda1ca11cf:afterEdit:2bb23e9d",
+        "tool_use_id": "6a759febee1c14eda1ca11cf",
+        "operation_id": "6a759febee1c14eda1ca11cf",
+        "runtime_client": "trae-tob-git-ai"
+      }
+    }
+  }
+}
