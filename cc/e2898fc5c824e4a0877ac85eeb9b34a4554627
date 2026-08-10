@@ -1,0 +1,41 @@
+vllm_omni/diffusion/models/qwen_image/pipeline_qwen_image.py
+  h_cc1d3e9b6b1826 1098
+vllm_omni/diffusion/pid/text_encoder.py
+  h_cc1d3e9b6b1826 52
+vllm_omni/diffusion/pid/mixin.py
+  s_3aec1ae4a2f587::t_09be057a07970e 117-118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "cce2898fc5c824e4a0877ac85eeb9b34a4554627",
+  "prompts": {},
+  "humans": {
+    "h_cc1d3e9b6b1826": {
+      "author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  },
+  "sessions": {
+    "s_3aec1ae4a2f587": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a793b2b7b93c5eef4c74564",
+        "model": "DeepSeek-V4-Flash-Official"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "tool_id": "icube:applyChatSnapshotPatch",
+        "dedupe_key": "6a793b2b7b93c5eef4c74564:6a797aa87b93c5eef4c74663:afterEdit:875aaa3e",
+        "session_id": "6a793b2b7b93c5eef4c74564",
+        "source_scene": "agent",
+        "tool_use_id": "6a797aa87b93c5eef4c74663",
+        "client_type": "ide",
+        "edit_kind": "file_edit",
+        "tool_type": "builtin",
+        "runtime_client": "trae-tob-git-ai",
+        "operation_id": "6a797aa87b93c5eef4c74663",
+        "external_session_id": "6a793b2b7b93c5eef4c74564"
+      }
+    }
+  }
+}
