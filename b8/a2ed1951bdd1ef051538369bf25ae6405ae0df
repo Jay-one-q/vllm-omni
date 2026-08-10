@@ -1,0 +1,18 @@
+vllm_omni/diffusion/pid/lq_projection_2d.py
+  h_cc1d3e9b6b1826 1-3
+vllm_omni/diffusion/pid/pid_net.py
+  h_cc1d3e9b6b1826 1-3
+vllm_omni/diffusion/pid/pixeldit.py
+  h_cc1d3e9b6b1826 1-3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "b8a2ed1951bdd1ef051538369bf25ae6405ae0df",
+  "prompts": {},
+  "humans": {
+    "h_cc1d3e9b6b1826": {
+      "author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  }
+}
