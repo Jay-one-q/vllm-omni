@@ -1,0 +1,39 @@
+vllm_omni/diffusion/models/qwen_image/pipeline_qwen_image.py
+  h_cc1d3e9b6b1826 1097
+  s_3aec1ae4a2f587::t_3a2e8df5c77664 1096
+  s_3aec1ae4a2f587::t_6de8b0bd85e8bc 1005
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "a80672dcc38d8ce8c679231d74872930a8f934a8",
+  "prompts": {},
+  "humans": {
+    "h_cc1d3e9b6b1826": {
+      "author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  },
+  "sessions": {
+    "s_3aec1ae4a2f587": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a793b2b7b93c5eef4c74564",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "dedupe_key": "6a793b2b7b93c5eef4c74564:6a793cf47b93c5eef4c74600:afterEdit:48d5060b",
+        "session_id": "6a793b2b7b93c5eef4c74564",
+        "source_scene": "agent",
+        "external_session_id": "6a793b2b7b93c5eef4c74564",
+        "tool_use_id": "6a793cf47b93c5eef4c74600",
+        "operation_id": "6a793cf47b93c5eef4c74600",
+        "edit_kind": "file_edit",
+        "runtime_client": "trae-tob-git-ai",
+        "tool_type": "builtin",
+        "tool_id": "icube:applyChatSnapshotPatch",
+        "client_type": "ide"
+      }
+    }
+  }
+}
