@@ -1,0 +1,58 @@
+vllm_omni/diffusion/pid/pixeldit.py
+  s_6263703e623dbe::t_9f7e04d92ee524 684
+  s_bc99ed6119e30f::t_544ada078032f9 681,683
+  s_24a77bf522c0a9::t_061825d4aa2628 682
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "d8e57dfae993f0589108069523ca170271c11282",
+  "prompts": {},
+  "sessions": {
+    "s_24a77bf522c0a9": {
+      "agent_id": {
+        "tool": "trae-code-edit",
+        "id": "ai_tab-2026081020193501000023603555798A8",
+        "model": "default"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "tool": "trae-code-edit",
+        "client_type": "plugin",
+        "source_scene": "cue",
+        "external_session_id": "2026081020193501000023603555798A8",
+        "edit_kind": "file_edit"
+      }
+    },
+    "s_6263703e623dbe": {
+      "agent_id": {
+        "tool": "trae-code-edit",
+        "id": "ai_tab-202608102019590100021510443297040",
+        "model": "default"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "external_session_id": "202608102019590100021510443297040",
+        "source_scene": "cue",
+        "tool": "trae-code-edit",
+        "edit_kind": "file_edit",
+        "client_type": "plugin"
+      }
+    },
+    "s_bc99ed6119e30f": {
+      "agent_id": {
+        "tool": "trae-code-edit",
+        "id": "ai_tab-2026081020191501000024403253020C5",
+        "model": "default"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "external_session_id": "2026081020191501000024403253020C5",
+        "tool": "trae-code-edit",
+        "edit_kind": "file_edit",
+        "client_type": "plugin",
+        "source_scene": "cue"
+      }
+    }
+  }
+}
