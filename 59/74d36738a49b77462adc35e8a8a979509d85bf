@@ -1,0 +1,251 @@
+vllm_omni/diffusion/pid/decoder.py
+  s_02e5951abf64d5::t_2a4a2271fe0d29 21-23
+  s_02e5951abf64d5::t_a1057021dfdecd 25
+  s_02e5951abf64d5::t_91ec1f9640ba4e 18-20
+  h_cc1d3e9b6b1826 76,105,112
+  s_02e5951abf64d5::t_4f50851b4a1ab1 24
+  s_02e5951abf64d5::t_bec9e63188cf25 15-17
+vllm_omni/diffusion/pid/context_parallel.py
+  s_02e5951abf64d5::t_8e4b3c5d066615 136-138
+  s_02e5951abf64d5::t_e5cc86cfa9dad7 17,34,48,64,82,101,122,130-132,157,159,178,180
+  s_02e5951abf64d5::t_e265d55e4b3e53 139-141
+  s_02e5951abf64d5::t_3f4adb211c055e 142-144
+  s_02e5951abf64d5::t_568165b942e908 133-135
+  s_02e5951abf64d5::t_3c7aa964bd055a 14-16
+  s_02e5951abf64d5::t_16557238154d1d 18-20,31-33
+  s_02e5951abf64d5::t_e2a4b114d68f6b 35-37,45-47
+  s_02e5951abf64d5::t_60cd83e56998ae 49-51,61-63
+  s_02e5951abf64d5::t_1f617da562c499 65-67,79-81
+  s_02e5951abf64d5::t_c178caab3e9467 83-85,98-100
+  s_02e5951abf64d5::t_0dea8dddd295cd 102-104,119-121
+  s_02e5951abf64d5::t_7d06b0bef5fe55 123-125,127-129
+  s_02e5951abf64d5::t_ba9d956aaffd4f 145-147,154-156
+  s_02e5951abf64d5::t_0fa66ffa698dfd 158
+  s_02e5951abf64d5::t_73626da67ef6fc 160-162,175-177
+  s_02e5951abf64d5::t_30c637697f37e6 179
+  s_02e5951abf64d5::t_720b1b5b6a837d 181-183
+vllm_omni/diffusion/models/qwen_image/pipeline_qwen_image.py
+  s_02e5951abf64d5::t_29c4bc038126e9 903
+  s_02e5951abf64d5::t_e1c90247b9a9b1 901-902
+  s_02e5951abf64d5::t_4e1e414f8bd1ca 907-908
+  s_02e5951abf64d5::t_b768e985c359bf 1004
+  s_3aec1ae4a2f587::t_6de8b0bd85e8bc 1005
+  h_cc1d3e9b6b1826 1097-1098
+  s_02e5951abf64d5::t_ce05cde056dd8b 904-906
+  s_3aec1ae4a2f587::t_3a2e8df5c77664 1096
+vllm_omni/diffusion/data.py
+  h_cc1d3e9b6b1826 672
+vllm_omni/diffusion/pid/pid_model.py
+  s_02e5951abf64d5::t_46f8fa2fd97b7c 331-333
+  s_02e5951abf64d5::t_9beec7b437cebf 66-72
+  s_02e5951abf64d5::t_4eeabafa5ff308 216
+  s_02e5951abf64d5::t_60c202bea2206a 178-192
+  s_02e5951abf64d5::t_246bccfec0034a 217-290
+  s_02e5951abf64d5::t_edd2cd49a5372c 12-14
+  s_02e5951abf64d5::t_29b781f16334af 9-11
+  s_91ade79cded594::t_523a15925e9b96 79-80
+  s_02e5951abf64d5::t_585ca1642fb7bf 73
+  s_02e5951abf64d5::t_137ecdd1dc507b 151-155
+  s_91ade79cded594::t_2bd161c2f344ae 42
+  s_02e5951abf64d5::t_a5da0632ea35d6 291-330
+  s_02e5951abf64d5::t_6fc823b1c33847 175-176
+  s_02e5951abf64d5::t_cf3099eb1ac374 194-215
+  s_02e5951abf64d5::t_83b383b1e7a114 65,145-150,174,177,193,334
+  s_02e5951abf64d5::t_87e4804635d2c4 15
+  s_02e5951abf64d5::t_cc21827a3b5c7f 156-172
+  s_02e5951abf64d5::t_04a44c9898c6fe 335-336
+  s_02e5951abf64d5::t_bdb5a464210d42 173
+  s_02e5951abf64d5::t_7203772a8da868 16-41,43-64
+  s_02e5951abf64d5::t_4f735fa6a1f76c 74-78,81-144
+  s_02e5951abf64d5::t_ea2420a639d6d4 6-8
+vllm_omni/diffusion/pid/text_encoder.py
+  s_02e5951abf64d5::t_3617deb6bd108e 20
+  s_02e5951abf64d5::t_d9e97d0725132e 14-16
+  h_cc1d3e9b6b1826 52
+  s_91ade79cded594::t_a9d280e78368e5 28-34
+  s_02e5951abf64d5::t_6f833932f091d7 17-19
+  s_02e5951abf64d5::t_12cdb7d6722539 78-80
+  s_02e5951abf64d5::t_696a5d77143c8c 75-77
+  s_02e5951abf64d5::t_2de73ef60fe24e 74
+  s_02e5951abf64d5::t_15f3c8d6d20682 11-13
+  s_02e5951abf64d5::t_5ecc8582e05f77 81-83
+vllm_omni/diffusion/pid/pixeldit.py
+  s_bc99ed6119e30f::t_544ada078032f9 681,683
+  s_24a77bf522c0a9::t_061825d4aa2628 682
+  h_cc1d3e9b6b1826 1-3
+  s_91ade79cded594::t_8bfd30eb8e3892 644,669-671,1158
+  s_91ade79cded594::t_6b64ef3074351e 230,336,341,388-394,434,445,486,535,570-571,709,719,816-817,932,944,1006,1018,1089,1118
+  s_91ade79cded594::t_4e0011e9d49c6f 664-666,1157
+  s_6263703e623dbe::t_9f7e04d92ee524 684
+  s_91ade79cded594::t_59ee82ea357657 231-233,333-335
+  s_91ade79cded594::t_4d2391e3a5d46a 337-340
+  s_91ade79cded594::t_8248a17a8d2307 342-344,385-387
+  s_91ade79cded594::t_eaf3078dc391e4 395-397,431-433
+  s_91ade79cded594::t_67f1243fd57cff 435-437,442-444
+  s_91ade79cded594::t_cd99f1876ce73c 446-448,483-485
+  s_91ade79cded594::t_b95ff598c65777 487-489,532-534
+  s_91ade79cded594::t_e61f2a7b7545ee 536-538,567-569
+  s_91ade79cded594::t_eca90f38faec74 572-574,641-643
+  s_91ade79cded594::t_58b0e73dc547fa 645-647,661-663
+  s_91ade79cded594::t_031621f902dedb 667-668
+  s_91ade79cded594::t_b6ec01e86b32bd 710-712,716-718
+  s_91ade79cded594::t_7a068199d39035 720-722,813-815
+  s_91ade79cded594::t_8af52b7bc7ee72 818-820,929-931
+  s_91ade79cded594::t_533f9ed2539a64 933-935,941-943
+  s_91ade79cded594::t_863960b813874c 945-947,1003-1005
+  s_91ade79cded594::t_4a0b4aee70ec41 1007-1009,1015-1017
+  s_91ade79cded594::t_6d1fb226e65a61 1019-1021,1086-1088
+  s_91ade79cded594::t_247a6acbd4212d 1090-1092,1115-1117
+  s_91ade79cded594::t_45d5a932e35a2a 1119-1121,1154-1156
+  s_91ade79cded594::t_7216d0b9d7e82b 1159-1161
+vllm_omni/diffusion/pid/mixin.py
+  s_02e5951abf64d5::t_6c3d4ed8350b81 122
+  h_cc1d3e9b6b1826 123
+  s_91ade79cded594::t_55d271e5d7c2df 75
+  s_3aec1ae4a2f587::t_f7f0bca07f8bdc 115-117
+  s_3aec1ae4a2f587::t_09be057a07970e 118-119
+  s_3aec1ae4a2f587::t_23cf0e7a88482c 112-114
+  s_91ade79cded594::t_062bf5c64d9f79 72-74
+vllm_omni/diffusion/pid/pid_net.py
+  s_91ade79cded594::t_4798ea67b06e00 277-300
+  s_91ade79cded594::t_0477e402950bf7 197-202
+  h_cc1d3e9b6b1826 1-3
+  s_91ade79cded594::t_af70d6cef1de49 203-205,274-276
+  s_91ade79cded594::t_6d24198e91e6ba 301-303
+vllm_omni/diffusion/pid/lq_projection_2d.py
+  h_cc1d3e9b6b1826 1-3
+  s_91ade79cded594::t_f8894992d2c5b6 372,378-386,445-453,460-500,507,529
+  s_91ade79cded594::t_f539ab7d296015 129-140
+  s_91ade79cded594::t_426629d1383f23 388-441,512
+  s_91ade79cded594::t_206735fbebc9aa 377,459,506
+  s_91ade79cded594::t_a8a6b9a1a282bb 141-143,369-371
+  s_91ade79cded594::t_de730a9b1595dd 373-376
+  s_91ade79cded594::t_b8ebbe68c6703e 387
+  s_91ade79cded594::t_922ccb26bdb79f 442-444
+  s_91ade79cded594::t_280c92e18f6b00 454-458
+  s_91ade79cded594::t_b3c18a528da3a5 501-505
+  s_91ade79cded594::t_dd0b9927312de0 508-511
+  s_91ade79cded594::t_ac8ffa3c5bece0 513-515,526-528
+  s_91ade79cded594::t_a9debe49268c57 530-531
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "5974d36738a49b77462adc35e8a8a979509d85bf",
+  "prompts": {},
+  "humans": {
+    "h_cc1d3e9b6b1826": {
+      "author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  },
+  "sessions": {
+    "s_02e5951abf64d5": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a747614ee1c14eda1ca0f83",
+        "model": "glm-5.2"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "source_scene": "agent",
+        "tool_use_id": "6a759febee1c14eda1ca11cf",
+        "edit_kind": "file_edit",
+        "session_id": "6a747614ee1c14eda1ca0f83",
+        "tool_id": "icube:applyChatSnapshotPatch",
+        "external_session_id": "6a747614ee1c14eda1ca0f83",
+        "dedupe_key": "6a747614ee1c14eda1ca0f83:6a759febee1c14eda1ca11cf:afterEdit:2bb23e9d",
+        "runtime_client": "trae-tob-git-ai",
+        "operation_id": "6a759febee1c14eda1ca11cf",
+        "tool_type": "builtin",
+        "client_type": "ide"
+      }
+    },
+    "s_24a77bf522c0a9": {
+      "agent_id": {
+        "tool": "trae-code-edit",
+        "id": "ai_tab-2026081020193501000023603555798A8",
+        "model": "default"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "source_scene": "cue",
+        "edit_kind": "file_edit",
+        "external_session_id": "2026081020193501000023603555798A8",
+        "client_type": "plugin",
+        "tool": "trae-code-edit"
+      }
+    },
+    "s_3aec1ae4a2f587": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a793b2b7b93c5eef4c74564",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "source_scene": "agent",
+        "external_session_id": "6a793b2b7b93c5eef4c74564",
+        "edit_kind": "file_edit",
+        "client_type": "ide",
+        "runtime_client": "trae-tob-git-ai",
+        "tool_use_id": "6a793cf47b93c5eef4c74600",
+        "tool_id": "icube:applyChatSnapshotPatch",
+        "session_id": "6a793b2b7b93c5eef4c74564",
+        "tool_type": "builtin",
+        "dedupe_key": "6a793b2b7b93c5eef4c74564:6a793cf47b93c5eef4c74600:afterEdit:48d5060b",
+        "operation_id": "6a793cf47b93c5eef4c74600"
+      }
+    },
+    "s_6263703e623dbe": {
+      "agent_id": {
+        "tool": "trae-code-edit",
+        "id": "ai_tab-202608102019590100021510443297040",
+        "model": "default"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "external_session_id": "202608102019590100021510443297040",
+        "client_type": "plugin",
+        "edit_kind": "file_edit",
+        "source_scene": "cue",
+        "tool": "trae-code-edit"
+      }
+    },
+    "s_91ade79cded594": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a7983827b93c5eef4c7469e",
+        "model": "DeepSeek-V4-Flash-Official"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "source_scene": "agent",
+        "operation_id": "6a79bcd97b93c5eef4c748b0",
+        "dedupe_key": "6a7983827b93c5eef4c7469e:6a79bcd97b93c5eef4c748b0:afterEdit:875aaa3e",
+        "client_type": "ide",
+        "session_id": "6a7983827b93c5eef4c7469e",
+        "external_session_id": "6a7983827b93c5eef4c7469e",
+        "runtime_client": "trae-tob-git-ai",
+        "tool_use_id": "6a79bcd97b93c5eef4c748b0",
+        "tool_type": "builtin",
+        "tool_id": "icube:applyChatSnapshotPatch",
+        "edit_kind": "file_edit"
+      }
+    },
+    "s_bc99ed6119e30f": {
+      "agent_id": {
+        "tool": "trae-code-edit",
+        "id": "ai_tab-2026081020191501000024403253020C5",
+        "model": "default"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "tool": "trae-code-edit",
+        "client_type": "plugin",
+        "source_scene": "cue",
+        "external_session_id": "2026081020191501000024403253020C5",
+        "edit_kind": "file_edit"
+      }
+    }
+  }
+}
