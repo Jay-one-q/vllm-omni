@@ -1,0 +1,56 @@
+vllm_omni/diffusion/pid/pid_net.py
+  s_91ade79cded594::t_4798ea67b06e00 277-278,290,293,300
+  s_91ade79cded594::t_0477e402950bf7 197,201-202
+vllm_omni/diffusion/pid/mixin.py
+  s_91ade79cded594::t_55d271e5d7c2df 75
+vllm_omni/diffusion/pid/pixeldit.py
+  s_91ade79cded594::t_8bfd30eb8e3892 644,669-671,684,1160
+  s_91ade79cded594::t_4e0011e9d49c6f 664-666,681,1159
+  s_91ade79cded594::t_6b64ef3074351e 388-394
+vllm_omni/diffusion/pid/pid_model.py
+  s_91ade79cded594::t_2bd161c2f344ae 42
+  s_91ade79cded594::t_523a15925e9b96 79-80
+vllm_omni/diffusion/pid/text_encoder.py
+  s_91ade79cded594::t_a9d280e78368e5 28-29,32-34
+vllm_omni/diffusion/data.py
+  h_cc1d3e9b6b1826 672
+vllm_omni/diffusion/pid/lq_projection_2d.py
+  s_91ade79cded594::t_426629d1383f23 388,391,396,399-400,403,408,410,439-441,512
+  s_91ade79cded594::t_f539ab7d296015 129-130,136,140
+  s_91ade79cded594::t_f8894992d2c5b6 372,378,385-386,445,451,453,460,466,470,476,482,487,500,507,529
+  s_91ade79cded594::t_206735fbebc9aa 377,459,506
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "99e3b4fc7a9884e0107ee199678fd5051ba84075",
+  "prompts": {},
+  "humans": {
+    "h_cc1d3e9b6b1826": {
+      "author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  },
+  "sessions": {
+    "s_91ade79cded594": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a7983827b93c5eef4c7469e",
+        "model": "DeepSeek-V4-Flash-Official"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "operation_id": "6a79bcd97b93c5eef4c748b0",
+        "source_scene": "agent",
+        "runtime_client": "trae-tob-git-ai",
+        "client_type": "ide",
+        "edit_kind": "file_edit",
+        "external_session_id": "6a7983827b93c5eef4c7469e",
+        "dedupe_key": "6a7983827b93c5eef4c7469e:6a79bcd97b93c5eef4c748b0:afterEdit:875aaa3e",
+        "session_id": "6a7983827b93c5eef4c7469e",
+        "tool_type": "builtin",
+        "tool_use_id": "6a79bcd97b93c5eef4c748b0",
+        "tool_id": "icube:applyChatSnapshotPatch"
+      }
+    }
+  }
+}
