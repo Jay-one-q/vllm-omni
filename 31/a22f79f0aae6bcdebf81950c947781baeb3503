@@ -1,0 +1,111 @@
+vllm_omni/diffusion/pid/mixin.py
+  s_3aec1ae4a2f587::t_09be057a07970e 117-118
+  s_02e5951abf64d5::t_6c3d4ed8350b81 121
+  h_cc1d3e9b6b1826 122
+  s_3aec1ae4a2f587::t_f7f0bca07f8bdc 114-116
+  s_3aec1ae4a2f587::t_23cf0e7a88482c 111-113
+vllm_omni/diffusion/pid/context_parallel.py
+  s_02e5951abf64d5::t_568165b942e908 133-135
+  s_02e5951abf64d5::t_e265d55e4b3e53 139-141
+  s_02e5951abf64d5::t_8e4b3c5d066615 136-138
+  s_02e5951abf64d5::t_e5cc86cfa9dad7 130-132
+  s_02e5951abf64d5::t_3f4adb211c055e 142-144
+vllm_omni/diffusion/pid/text_encoder.py
+  s_02e5951abf64d5::t_3617deb6bd108e 20
+  s_02e5951abf64d5::t_696a5d77143c8c 75-77
+  h_cc1d3e9b6b1826 52
+  s_02e5951abf64d5::t_6f833932f091d7 17-19
+  s_02e5951abf64d5::t_2de73ef60fe24e 74
+  s_02e5951abf64d5::t_d9e97d0725132e 14-16
+  s_02e5951abf64d5::t_12cdb7d6722539 78-80
+vllm_omni/diffusion/pid/pid_model.py
+  s_02e5951abf64d5::t_6fc823b1c33847 172-173
+  s_02e5951abf64d5::t_cf3099eb1ac374 191-212
+  s_02e5951abf64d5::t_46f8fa2fd97b7c 328-330
+  s_02e5951abf64d5::t_edd2cd49a5372c 12-14
+  s_02e5951abf64d5::t_bdb5a464210d42 170
+  s_02e5951abf64d5::t_137ecdd1dc507b 148-152
+  s_02e5951abf64d5::t_4f735fa6a1f76c 73-141
+  s_02e5951abf64d5::t_60c202bea2206a 175-189
+  s_02e5951abf64d5::t_585ca1642fb7bf 72
+  s_02e5951abf64d5::t_a5da0632ea35d6 288-327
+  s_02e5951abf64d5::t_9beec7b437cebf 65-71
+  s_02e5951abf64d5::t_87e4804635d2c4 15
+  s_02e5951abf64d5::t_83b383b1e7a114 64,142-147,171,174,190,331
+  s_02e5951abf64d5::t_cc21827a3b5c7f 153-169
+  s_02e5951abf64d5::t_246bccfec0034a 214-287
+  s_02e5951abf64d5::t_04a44c9898c6fe 332-333
+  s_02e5951abf64d5::t_7203772a8da868 16-63
+  s_02e5951abf64d5::t_4eeabafa5ff308 213
+  s_02e5951abf64d5::t_29b781f16334af 9-11
+vllm_omni/diffusion/models/qwen_image/pipeline_qwen_image.py
+  s_02e5951abf64d5::t_e1c90247b9a9b1 901-902
+  h_cc1d3e9b6b1826 1097-1098
+  s_3aec1ae4a2f587::t_6de8b0bd85e8bc 1005
+  s_02e5951abf64d5::t_ce05cde056dd8b 904-906
+  s_02e5951abf64d5::t_b768e985c359bf 1004
+  s_3aec1ae4a2f587::t_3a2e8df5c77664 1096
+  s_02e5951abf64d5::t_29c4bc038126e9 903
+  s_02e5951abf64d5::t_4e1e414f8bd1ca 907-908
+vllm_omni/diffusion/pid/decoder.py
+  h_cc1d3e9b6b1826 75,102,109
+  s_02e5951abf64d5::t_4f50851b4a1ab1 24
+  s_02e5951abf64d5::t_2a4a2271fe0d29 21-23
+  s_02e5951abf64d5::t_a1057021dfdecd 25
+  s_02e5951abf64d5::t_91ec1f9640ba4e 18-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "31a22f79f0aae6bcdebf81950c947781baeb3503",
+  "prompts": {},
+  "humans": {
+    "h_cc1d3e9b6b1826": {
+      "author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  },
+  "sessions": {
+    "s_02e5951abf64d5": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a747614ee1c14eda1ca0f83",
+        "model": "glm-5.2"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "tool_id": "icube:applyChatSnapshotPatch",
+        "client_type": "ide",
+        "tool_type": "builtin",
+        "source_scene": "agent",
+        "runtime_client": "trae-tob-git-ai",
+        "tool_use_id": "6a759febee1c14eda1ca11cf",
+        "session_id": "6a747614ee1c14eda1ca0f83",
+        "dedupe_key": "6a747614ee1c14eda1ca0f83:6a759febee1c14eda1ca11cf:afterEdit:2bb23e9d",
+        "operation_id": "6a759febee1c14eda1ca11cf",
+        "external_session_id": "6a747614ee1c14eda1ca0f83",
+        "edit_kind": "file_edit"
+      }
+    },
+    "s_3aec1ae4a2f587": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a793b2b7b93c5eef4c74564",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "edit_kind": "file_edit",
+        "tool_type": "builtin",
+        "client_type": "ide",
+        "external_session_id": "6a793b2b7b93c5eef4c74564",
+        "tool_id": "icube:applyChatSnapshotPatch",
+        "tool_use_id": "6a793cf47b93c5eef4c74600",
+        "operation_id": "6a793cf47b93c5eef4c74600",
+        "dedupe_key": "6a793b2b7b93c5eef4c74564:6a793cf47b93c5eef4c74600:afterEdit:48d5060b",
+        "session_id": "6a793b2b7b93c5eef4c74564",
+        "runtime_client": "trae-tob-git-ai",
+        "source_scene": "agent"
+      }
+    }
+  }
+}
