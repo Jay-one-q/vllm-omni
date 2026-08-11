@@ -1,0 +1,58 @@
+vllm_omni/diffusion/pid/decoder.py
+  s_06d56d8af26b2e::t_f0015beafc5374 19
+  s_06d56d8af26b2e::t_a2242228dee706 148
+vllm_omni/diffusion/pid/pixeldit.py
+  s_06d56d8af26b2e::t_f0015beafc5374 211,253,255,439-440,465,467,564,566,576,674,822-824,1116-1117,1201-1207,1262
+  s_06d56d8af26b2e::t_a2242228dee706 680-685
+vllm_omni/diffusion/pid/__init__.py
+  s_06d56d8af26b2e::t_f0015beafc5374 12
+vllm_omni/diffusion/pid/pid_model.py
+  s_06d56d8af26b2e::t_f0015beafc5374 12-13,61
+  s_06d56d8af26b2e::t_a2242228dee706 64,125,144-145,152,161-162,171,181,183,206,218-220,227,233-236,253,255,279,293,307-308,313-315,323-329
+vllm_omni/diffusion/pid/context_parallel.py
+  s_06d56d8af26b2e::t_f0015beafc5374 173
+  s_06d56d8af26b2e::t_a2242228dee706 153
+vllm_omni/diffusion/pid/config.py
+  s_06d56d8af26b2e::t_a2242228dee706 118,126
+  s_06d56d8af26b2e::t_51da1f04439cb2 134
+vllm_omni/diffusion/pid/mixin.py
+  s_06d56d8af26b2e::t_a2242228dee706 68,99,137,151
+vllm_omni/diffusion/models/qwen_image/pipeline_qwen_image.py
+  s_06d56d8af26b2e::t_f0015beafc5374 39,1098
+vllm_omni/diffusion/pid/pid_net.py
+  s_06d56d8af26b2e::t_f0015beafc5374 12,74-75
+vllm_omni/diffusion/pid/lq_projection_2d.py
+  s_06d56d8af26b2e::t_a2242228dee706 40,65,221,223,260-262,264
+  s_06d56d8af26b2e::t_f0015beafc5374 46,71,359,409,450-451,455
+examples/offline_inference/text_to_image/text_to_image.py
+  s_06d56d8af26b2e::t_a2242228dee706 357
+vllm_omni/diffusion/pid/checkpoint.py
+  s_06d56d8af26b2e::t_a2242228dee706 28,33
+vllm_omni/diffusion/pid/text_encoder.py
+  s_06d56d8af26b2e::t_a2242228dee706 57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "5865cd1ce484c5a8f70360586dfd7eb29cc6e09d",
+  "prompts": {},
+  "sessions": {
+    "s_06d56d8af26b2e": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a79c2617b93c5eef4c748b4",
+        "model": "deepseek_v4_flash_official__dev"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "operation_id": "6a7a88927b93c5eef4c74978",
+        "edit_kind": "bash",
+        "external_session_id": "6a79c2617b93c5eef4c748b4",
+        "tool_use_id": "6a7a88927b93c5eef4c74978",
+        "tool_name": "RunCommand",
+        "display_model_name": "DeepSeek-V4-Flash 正式版",
+        "session_id": "6a79c2617b93c5eef4c748b4"
+      }
+    }
+  }
+}
