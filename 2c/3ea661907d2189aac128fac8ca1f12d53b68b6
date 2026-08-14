@@ -1,0 +1,40 @@
+vllm_omni/diffusion/pid/pixeldit.py
+  s_06d56d8af26b2e::t_f0e88fe85bbf69 663,668
+  h_cc1d3e9b6b1826 680,683
+vllm_omni/diffusion/pid/pid_model.py
+  h_cc1d3e9b6b1826 80,210,212,224
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "2c3ea661907d2189aac128fac8ca1f12d53b68b6",
+  "prompts": {},
+  "humans": {
+    "h_cc1d3e9b6b1826": {
+      "author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  },
+  "sessions": {
+    "s_06d56d8af26b2e": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a79c2617b93c5eef4c748b4",
+        "model": "DeepSeek-V4-Flash-Official"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "operation_id": "6a7ae3e27b93c5eef4c74ad2",
+        "client_type": "ide",
+        "edit_kind": "file_edit",
+        "runtime_client": "trae-tob-git-ai",
+        "tool_id": "icube:applyChatSnapshotPatch",
+        "session_id": "6a79c2617b93c5eef4c748b4",
+        "source_scene": "agent",
+        "tool_use_id": "6a7ae3e27b93c5eef4c74ad2",
+        "dedupe_key": "6a79c2617b93c5eef4c748b4:6a7ae3e27b93c5eef4c74ad2:afterEdit:efd01f95",
+        "external_session_id": "6a79c2617b93c5eef4c748b4",
+        "tool_type": "builtin"
+      }
+    }
+  }
+}
