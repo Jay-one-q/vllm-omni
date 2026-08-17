@@ -1,0 +1,76 @@
+vllm_omni/diffusion/pid/config.py
+  s_b31e286e6999a9::t_76a241eb6e8cdd 98,100-137
+  h_cc1d3e9b6b1826 99
+vllm_omni/diffusion/pid/decoder.py
+  s_b31e286e6999a9::t_174a53ae24662a 104
+  s_b31e286e6999a9::t_eb2da3c2a3a6c6 23
+vllm_omni/diffusion/pid/checkpoint.py
+  s_b31e286e6999a9::t_b6fe60f404674c 8,10,14-17,24-67,71-72,83-84
+  s_199d6378cda73b::t_4c2ac10d7cb2bb 91-96
+  s_199d6378cda73b::t_660c8dd9b1d440 21-23
+  s_b31e286e6999a9::t_295a73edfc3a7c 18
+vllm_omni/diffusion/pid/pid_net.py
+  s_199d6378cda73b::t_f851c2e139c1a5 10,18-19,152,159,175,196,215,220,223-224,229,255-262,264,266-275,277,282,284-286,288,291,295,301,304-305
+vllm_omni/diffusion/pid/lq_projection_2d.py
+  s_199d6378cda73b::t_239fcd8c92d120 354,378,392,404
+vllm_omni/diffusion/pid/pixeldit.py
+  s_199d6378cda73b::t_1b4a99438280a7 822-838
+  s_199d6378cda73b::t_00a6476ebe8bc8 453,465-466,473-474,476-477
+  s_199d6378cda73b::t_0b50a2db0649b5 525-527,547-548,561-562,566
+  s_199d6378cda73b::t_3bffcccba114d3 256
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "bb1149cc7218cc4227be60b6e5de90285599a2f0",
+  "prompts": {},
+  "humans": {
+    "h_cc1d3e9b6b1826": {
+      "author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  },
+  "sessions": {
+    "s_199d6378cda73b": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a7ad45f7b93c5eef4c749f6",
+        "model": "DeepSeek-V4-Flash-Official"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "client_type": "ide",
+        "tool_use_id": "6a7f0a4f843da19974c4495a",
+        "runtime_client": "trae-tob-git-ai",
+        "session_id": "6a7ad45f7b93c5eef4c749f6",
+        "tool_type": "builtin",
+        "edit_kind": "file_edit",
+        "external_session_id": "6a7ad45f7b93c5eef4c749f6",
+        "operation_id": "6a7f0a4f843da19974c4495a",
+        "tool_id": "icube:applyChatSnapshotPatch",
+        "dedupe_key": "6a7ad45f7b93c5eef4c749f6:6a7f0a4f843da19974c4495a:afterEdit:497d8908",
+        "source_scene": "agent"
+      }
+    },
+    "s_b31e286e6999a9": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a7db23a843da19974c44666",
+        "model": "DeepSeek-V4-Flash-Official"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "dedupe_key": "6a7db23a843da19974c44666:70aed7e8-7225-4650-b525-9276cd8613ed:after_edit:c:\\Users\\jayQ\\PycharmProjects\\vllm-omni\\vllm_omni\\diffusion\\pid\\PiD_TEST_GUIDE.md",
+        "session_id": "6a7db23a843da19974c44666",
+        "external_session_id": "6a7db23a843da19974c44666",
+        "tool_type": "fast_apply",
+        "source_scene": "agent",
+        "tool_id": "70aed7e8-7225-4650-b525-9276cd8613ed",
+        "runtime_client": "trae-tob-git-ai",
+        "operation_id": "70aed7e8-7225-4650-b525-9276cd8613ed",
+        "tool_use_id": "70aed7e8-7225-4650-b525-9276cd8613ed",
+        "client_type": "ide",
+        "edit_kind": "file_edit"
+      }
+    }
+  }
+}
