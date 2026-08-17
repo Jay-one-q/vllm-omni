@@ -1,0 +1,65 @@
+tests/e2e/online_serving/test_qwen_image_pid_expansion.py
+  s_434c0d116192a9::t_da66c50c73d866 1-79
+tests/diffusion/pid/test_pid_model.py
+  s_434c0d116192a9::t_73c4b6f8b1e592 3,19
+  s_434c0d116192a9::t_e7cefca2be1108 1-2,4-18,20-44
+tests/diffusion/pid/__init__.py
+  s_434c0d116192a9::t_8a5a9de0da65fc 1-2
+tests/diffusion/pid/test_pid_checkpoint.py
+  s_434c0d116192a9::t_f5a3528eb9334b 1-16,18-22,24-31,33-34,36-38,40-47,49-61,63-86
+  s_434c0d116192a9::t_70963a01122781 17,23,32,35,39,48,62,87
+tests/diffusion/pid/test_pid_mixin.py
+  s_434c0d116192a9::t_398faec442b681 31-34
+  s_434c0d116192a9::t_5cb9b97ead8b6e 1-22,24-30,35-36,38-55,57-74
+  s_434c0d116192a9::t_b151a2723ef14c 23,37,56
+tests/diffusion/pid/test_pid_decoder.py
+  s_434c0d116192a9::t_3aa17fa00b83c6 1-19,21-47,49-56,58-61,64-71,73-91,93-103
+  s_434c0d116192a9::t_dbd6257ad99eab 20,48,57,62-63,72,92
+tests/diffusion/pid/test_pid_pipeline.py
+  s_434c0d116192a9::t_59a22396a7c7af 9
+  s_434c0d116192a9::t_6d14776ae5fdef 1-8,10-20,22-35,37-50,52-53,55-63,65-67,69-76,78-80,82-87,89,91-95,97-100,102-111,113-114,116-118,120-124
+  s_434c0d116192a9::t_64b13bc0d55c0b 21,36,51,54,64,68,77,81,88,90,96,101,112,115,119
+tests/e2e/online_serving/test_qwen_image_pid.py
+  s_434c0d116192a9::t_6392917f9c1b88 1-112
+tests/e2e/accuracy/test_qwen_image_pid_accuracy.py
+  s_434c0d116192a9::t_00209f282d963e 1-102
+tests/dfx/reliability/invalid_param_test/test_invalid_pid_params.py
+  s_434c0d116192a9::t_fb1ad7e62f2f6a 47,49-50,54-55,59
+  s_434c0d116192a9::t_194fe98e0c5616 1-46,48,51-53,56-58,60-75
+tests/diffusion/pid/test_pid_config.py
+  s_434c0d116192a9::t_cb4cd3f2c1dbd0 1-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "64db40292f0f9c64722385e9ef1253ca0d92251c",
+  "prompts": {},
+  "humans": {
+    "h_cc1d3e9b6b1826": {
+      "author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  },
+  "sessions": {
+    "s_434c0d116192a9": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a82609f843da19974c44b28",
+        "model": "DeepSeek-V4-Flash-Official"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "operation_id": "6a82f25e843da19974c44e3e",
+        "client_type": "ide",
+        "external_session_id": "6a82609f843da19974c44b28",
+        "tool_use_id": "6a82f25e843da19974c44e3e",
+        "tool_id": "icube:applyChatSnapshotPatch",
+        "source_scene": "agent",
+        "tool_type": "builtin",
+        "runtime_client": "trae-tob-git-ai",
+        "dedupe_key": "6a82609f843da19974c44b28:6a82f25e843da19974c44e3e:afterEdit:b2e22bc5",
+        "session_id": "6a82609f843da19974c44b28",
+        "edit_kind": "file_edit"
+      }
+    }
+  }
+}
