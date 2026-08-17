@@ -21,7 +21,9 @@ MODEL = "Qwen/Qwen-Image"
 
 _PID_SERVER = [
     pytest.param(
-        OmniServerParams(model=MODEL, server_args=["--pid-enable", "--pid-gemma", "Efficient-Large-Model/gemma-2-2b-it"]),
+        OmniServerParams(
+            model=MODEL, server_args=["--pid-enable", "--pid-gemma", "Efficient-Large-Model/gemma-2-2b-it"]
+        ),
         id="pid_enabled",
         marks=hardware_marks(res={"cuda": "H100"}),
     ),

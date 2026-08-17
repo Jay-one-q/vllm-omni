@@ -611,12 +611,12 @@ class MMDiTBlockT2I(nn.Module):
 
     def forward(self, x, y, c, pos_img, pos_txt=None, attn_mask=None):
         # c: [B, 1, C] typically, broadcast across tokens
-        shift_msa_x, scale_msa_x, gate_msa_x, shift_mlp_x, scale_mlp_x, gate_mlp_x = self.adaLN_modulation_img(
-            c
-        ).chunk(6, dim=-1)
-        shift_msa_y, scale_msa_y, gate_msa_y, shift_mlp_y, scale_mlp_y, gate_mlp_y = self.adaLN_modulation_txt(
-            c
-        ).chunk(6, dim=-1)
+        shift_msa_x, scale_msa_x, gate_msa_x, shift_mlp_x, scale_mlp_x, gate_mlp_x = self.adaLN_modulation_img(c).chunk(
+            6, dim=-1
+        )
+        shift_msa_y, scale_msa_y, gate_msa_y, shift_mlp_y, scale_mlp_y, gate_mlp_y = self.adaLN_modulation_txt(c).chunk(
+            6, dim=-1
+        )
 
         # 1) Joint attention with dual-stream
         x_norm = apply_adaln(self.norm_x1(x), shift_msa_x, scale_msa_x)

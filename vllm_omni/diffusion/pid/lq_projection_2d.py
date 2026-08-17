@@ -401,4 +401,3 @@ class LQProjection2D(nn.Module):
         if self.pit_head is not None:
             outputs.append(self.pit_head(tokens))
         return outputs
-

@@ -8,7 +8,7 @@ import pytest
 import torch
 
 from vllm_omni.diffusion.pid import load_pid_checkpoint
-from vllm_omni.diffusion.pid.config import PID_CHECKPOINT_REGISTRY, _PID_HF_REPO
+from vllm_omni.diffusion.pid.config import _PID_HF_REPO, PID_CHECKPOINT_REGISTRY
 
 pytestmark = [pytest.mark.core_model, pytest.mark.diffusion, pytest.mark.cpu]
 

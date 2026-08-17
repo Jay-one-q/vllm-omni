@@ -20,7 +20,6 @@ from vllm_omni.diffusion.distributed.utils import get_local_device
 from vllm_omni.diffusion.pid.checkpoint import load_pid_checkpoint
 from vllm_omni.diffusion.pid.config import (
     PID_SAMPLING_CONFIG,
-    _PID_HF_REPO,
     get_pid_net_config,
 )
 from vllm_omni.diffusion.pid.pid_model import PidInferenceModel

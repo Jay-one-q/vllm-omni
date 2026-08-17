@@ -70,9 +70,7 @@ def test_post_decode_threads_request_pid_params_to_pid_decoder(mocker):
     pipe._pid_decoder = mocker.Mock()
     pipe._pid_decoder.decode = mocker.Mock(return_value=torch.zeros(1, 3, 1024, 1024))
 
-    out = pipe.post_decode(
-        _make_state({"enabled": True, "scale": 2, "seed": 7, "num_steps": 3, "degrade_sigma": 0.5})
-    )
+    out = pipe.post_decode(_make_state({"enabled": True, "scale": 2, "seed": 7, "num_steps": 3, "degrade_sigma": 0.5}))
 
     # request params parsed into pipeline attributes
     assert pipe._pid_override == {"enabled": True, "scale": 2, "seed": 7, "num_steps": 3, "degrade_sigma": 0.5}

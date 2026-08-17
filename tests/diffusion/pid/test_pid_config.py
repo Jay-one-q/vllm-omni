@@ -3,7 +3,7 @@
 
 import pytest
 
-from vllm_omni.diffusion.pid import get_pid_net_config, get_pid_sampling_config
+from vllm_omni.diffusion.pid import get_pid_net_config
 
 pytestmark = [pytest.mark.core_model, pytest.mark.diffusion, pytest.mark.cpu]
 
