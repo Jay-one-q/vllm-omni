@@ -3505,6 +3505,7 @@ class OmniOpenAIServingChat(OpenAIServingChat, AudioMixin):
             resolution=extra_body.get("resolution"),
             strength=extra_body.get("strength"),
             sigmas=extra_body.get("sigmas"),
+            pid_decode=extra_body.get("pid_decode"),
         )
 
         if lora_body and isinstance(lora_body, dict):
