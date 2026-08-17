@@ -1,0 +1,47 @@
+tests/dfx/reliability/invalid_param_test/test_invalid_pid_params.py
+  s_c52c070d4dd492::t_ff73959c6ddb61 24-26
+tests/diffusion/pid/test_pid_pipeline.py
+  s_c52c070d4dd492::t_ff73959c6ddb61 73
+tests/diffusion/pid/test_pid_checkpoint.py
+  s_c52c070d4dd492::t_ff73959c6ddb61 11
+tests/diffusion/pid/test_pid_config.py
+  s_c52c070d4dd492::t_ff73959c6ddb61 6
+vllm_omni/diffusion/pid/checkpoint.py
+  s_c52c070d4dd492::t_ff73959c6ddb61 14,55
+  s_c52c070d4dd492::t_a309e4937f326b 61
+  s_c52c070d4dd492::t_777391a41553a6 49-50
+vllm_omni/diffusion/pid/pid_model.py
+  s_c52c070d4dd492::t_ff73959c6ddb61 210
+vllm_omni/diffusion/pid/pixeldit.py
+  s_c52c070d4dd492::t_ff73959c6ddb61 614-619
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "b39f8893c03ecf97db4e71f27703901ca96fc73b",
+  "prompts": {},
+  "humans": {
+    "h_cc1d3e9b6b1826": {
+      "author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  },
+  "sessions": {
+    "s_c52c070d4dd492": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a82a903843da19974c44b7f",
+        "model": "deepseek_v4_flash_official__max"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "display_model_name": "DeepSeek-V4-Flash 正式版",
+        "operation_id": "6a82fb7f843da19974c44eb2",
+        "edit_kind": "bash",
+        "session_id": "6a82a903843da19974c44b7f",
+        "external_session_id": "6a82a903843da19974c44b7f",
+        "tool_use_id": "6a82fb7f843da19974c44eb2",
+        "tool_name": "RunCommand"
+      }
+    }
+  }
+}
