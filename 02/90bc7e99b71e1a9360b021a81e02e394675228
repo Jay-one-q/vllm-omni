@@ -1,0 +1,186 @@
+vllm_omni/diffusion/pid/pixeldit.py
+  s_114fde259e4299::t_94a129133a1870 258-268,276-280,282-286,288,290-296
+  s_114fde259e4299::t_b98c0625602f18 852-855,860-861
+  s_114fde259e4299::t_5dd3d74f8c0b08 593-600,603-606,630-643,649-655,657-659,661-663,665-668,670-672,679-680
+  s_114fde259e4299::t_b4ed58319ca6eb 974,976-978,980,982,984-986,988,990-991
+  s_114fde259e4299::t_4aaadfdf6a5db6 481-488,490-491,501
+  s_114fde259e4299::t_3ee6d24e4b3237 916-923
+  s_114fde259e4299::t_b384631bc20843 19-26
+  s_114fde259e4299::t_b2a516ca28742c 529-560
+  s_114fde259e4299::t_f994dee094eecb 742-757
+  s_114fde259e4299::t_7c5d35e1041e04 644-648
+  s_114fde259e4299::t_214f98d6f878f1 281
+  s_114fde259e4299::t_1b2de321fe1ebe 681
+  s_114fde259e4299::t_032bf2e84206b3 862
+vllm_omni/diffusion/pid/runner_integration.py
+  s_e5fab2c9a80f53::t_ae9f29ac056b4d 303
+  s_e5fab2c9a80f53::t_b8d49300cd5852 296-298,301-302,304,307
+  s_e5fab2c9a80f53::t_c75ad9136b3cec 8,13-14,16,20-29,32,34,38-40,42-47,49-86,88-99,105-114,118,122-141,143-151,153-163,165-187,189-194,196-200,212-229,231-249,251-262,264-275,277-286,290-293,295,299-300,305-306,308-322,324-345,347-349,352-359,361-362
+  s_e5fab2c9a80f53::t_1449073bbcac84 100
+  s_e5fab2c9a80f53::t_1c69ff4687eba6 287-289
+  s_e5fab2c9a80f53::t_efffca4511613f 351,360,363-364
+  s_e5fab2c9a80f53::t_840dfb78ef2b05 195
+  s_e5fab2c9a80f53::t_1cc065f15622c3 33,35-36,101-104,115-117,142,152,164,188,201-211,230,250,263,276,294,323,346,350
+vllm_omni/diffusion/pid/lq_projection_2d.py
+  s_e5fab2c9a80f53::t_998c34935cb8b6 330-343
+tests/diffusion/pid/test_pid_runner_integration.py
+  s_e5fab2c9a80f53::t_803f843da9f43f 173
+  s_e5fab2c9a80f53::t_9e21e4cc217797 219-223
+  s_e5fab2c9a80f53::t_871a89eea494ac 3-7,14,16-23,38,40-43,49-62,65,68-69,72-74,77-79,82,85-88,90-100,102-165,169-170,176-178,182-187,189-218,224-231,234-242
+  s_e5fab2c9a80f53::t_6bb66d17fff77a 188
+  s_e5fab2c9a80f53::t_b968aa589b3bd4 232-233
+  s_e5fab2c9a80f53::t_fc94ac883f0f26 166-168,171-172,174-175,179-181
+  s_e5fab2c9a80f53::t_85709512fc7a78 35-36,46
+vllm_omni/diffusion/pid/pid_net.py
+  s_114fde259e4299::t_04bfcbeac22008 271,277,295,297-299,301,304-306,310,313,315
+  s_114fde259e4299::t_a60cd87ebd2d72 225-238
+  s_114fde259e4299::t_4530187e7092c7 10-11
+.claude/skills/add-pid-model/SKILL.md
+  s_e5fab2c9a80f53::t_3f0e6cb36b6ef5 103-108,116,122,125-130,133-138
+  s_e5fab2c9a80f53::t_e59531c4ce3d4e 1-2,4-9,27,29,36,39-41,43,45-53,55-56,60-62,67-68,71-73,75,83,86,97,120,124,152,155,158-160,164,168-169,185-194,202-205,207,211-216,218-220,225-229,236-238
+  s_e5fab2c9a80f53::t_a7df8b92ae8d3b 154
+  s_e5fab2c9a80f53::t_3ff6c4119fc10b 15,17-22,25,30-31,37,42,54,57-59,63-66,69-70,74,76,78-82,84-85,87-96,98,100,102,110,112-115,118-119,121,123,131,142,144,146-147,149-151,153,156-157,161-163,165-167,170-179,183-184,195-197,200-201,206,208-210,217,221-224,230-234
+  s_e5fab2c9a80f53::t_93b2bfcc1f685c 77,99,101,109,111,117,141,143,145,148
+  s_e5fab2c9a80f53::t_f45051a220a1d7 3,10-14,16,23-24,26,28,32-35,38,44,139-140,180-182,198-199,235
+  s_e5fab2c9a80f53::t_a81feeb4a4d41d 132
+vllm_omni/diffusion/worker/diffusion_model_runner.py
+  s_e5fab2c9a80f53::t_74d24da24db30c 45-49
+  s_e5fab2c9a80f53::t_e86547c3ad85ce 838-845
+  s_e5fab2c9a80f53::t_bc08ccf91305f8 551-554,562-576
+tests/diffusion/pid/test_pid_pipeline.py
+  s_e5fab2c9a80f53::t_8e57f1765fe6a4 23
+  s_e5fab2c9a80f53::t_69f7b1c7fdb28b 48-57,73,82,85-86,102-103,105-112,115-156
+  s_e5fab2c9a80f53::t_62038b0513e6aa 3-6,11-13,25-26,31,34-45,60,63-64,67-72,75-76,79,87,90-99,157-161,163-178,181-187,189-221
+  s_e5fab2c9a80f53::t_2935c4a5bb2e1b 162,179-180,188
+  s_e5fab2c9a80f53::t_0167acba3dee20 7-10,15-16
+  s_e5fab2c9a80f53::t_b78f220fec369e 80,83-84
+  s_e5fab2c9a80f53::t_c02ac5fea04245 14
+  s_e5fab2c9a80f53::t_cc86ce65061523 65
+vllm_omni/diffusion/pid/__init__.py
+  s_e5fab2c9a80f53::t_7522d7393b6f20 23,25-32,41-49
+.claude/skills/add-pid-model/references/checkpoint-registry.md
+  s_e5fab2c9a80f53::t_6017641a7faa21 9
+  s_e5fab2c9a80f53::t_ff0a637e228585 1-8,10-65,67-76,79-81,83,86-88,96-104,122-128,131-135
+  s_e5fab2c9a80f53::t_117b37ae03be23 113-114
+  s_e5fab2c9a80f53::t_684e5b62193b81 138
+  s_e5fab2c9a80f53::t_c5821c92fd4e88 82
+  s_e5fab2c9a80f53::t_8bc7bcf9010de7 66,77-78,84-85,89-95,105-112,115-121,129-130,136-137,139
+.claude/skills/add-pid-model/references/adaptation-recipe.md
+  s_e5fab2c9a80f53::t_9dffd65fa62686 1
+  s_e5fab2c9a80f53::t_5e0e8fdd1082ee 2,8-10,53,55,58,61-62,64,66,68-69,75-76,86,88,90-91,101,119-120,226-228,251-253,255,261,268-272,275
+  s_e5fab2c9a80f53::t_245192576eb36c 73,77-78,81-83
+  s_e5fab2c9a80f53::t_6bb76100f866de 121,123-124
+  s_e5fab2c9a80f53::t_aaaf39f217e58c 98
+  s_e5fab2c9a80f53::t_b98c004f3402ee 175,178-183,185-187,189,191-192,194,199,202-216,221-225
+  s_e5fab2c9a80f53::t_b6815b75d52959 219-220
+  s_e5fab2c9a80f53::t_e567ca84bd74f2 13-15,23,33-37,50
+  s_e5fab2c9a80f53::t_45857b831cd37b 3-7,11,17-22,24-32,38-46,48-49,54,56-57,59-60,63,65,67,70-72,74,79-80,85,87,89,92-97,99-100,102-118,122,126,129-130,133,136-141,143-148,150-154,157-171,173,177,190,196,229-250,254,256-260,262-267,273-274
+  s_e5fab2c9a80f53::t_34c1ca7e155ad0 12,16,47,51-52,84,125,127-128,131-132,134-135,142,149,155-156,172,174,176,184,188,193,195,197-198,200-201,217-218
+docs/design/feature/pid_decode.md
+  s_e5fab2c9a80f53::t_054fab6cee2a79 12-13,51-54,56-60,72-78,120,124-125,155,157,189,192-207,210-215,217-223,225-227,229-232,237,239-244,246,253-278,282,285,290,295,297-314,320-321,323,325-328,330,332-333,336,339-340,342,344-345,348-349,352-355,357,359-360,364-366,370-388,467-471,479,486-488,496-502
+  h_cc1d3e9b6b1826 50,55
+  s_e5fab2c9a80f53::t_638e3482486dcc 233-236,238,245,247-252
+vllm_omni/entrypoints/openai/serving_chat.py
+  s_2b5d82cdd7bfd6::t_1045e49a96a61d 3561-3562
+  s_2b5d82cdd7bfd6::t_b2d0755eb1b8ba 188
+vllm_omni/diffusion/pid/config.py
+  s_e5fab2c9a80f53::t_10acced3d9da7b 65-69,76
+  s_e5fab2c9a80f53::t_ab7a7ca2f4da8e 89-91
+tests/diffusion/pid/test_pid_latent_forms.py
+  s_e5fab2c9a80f53::t_20a24535e25133 3,5-10,12-14,16,18,21,24,29-33,36-38,41-57,61,63-66,68-95,97,99,145,147,195-196,200-201,206-218,225-234,237-239,241-246
+  s_e5fab2c9a80f53::t_89eae77b95fbc9 156-157
+  s_e5fab2c9a80f53::t_9bca2b5cbe4c5d 11
+  s_e5fab2c9a80f53::t_dce632404a9474 96,98,100-126,128-144,146,148-154,158-194,197-199,202-205
+  s_e5fab2c9a80f53::t_4fb08104f062cd 127
+  s_e5fab2c9a80f53::t_4004564c6fb87f 155
+  s_e5fab2c9a80f53::t_967db7deb9be87 25,27-28,34-35
+  s_e5fab2c9a80f53::t_2c6cfee6bbfb9f 219-224
+  s_e5fab2c9a80f53::t_82f67c8e9b6b3b 58-60
+  s_e5fab2c9a80f53::t_a82d70b026ab21 62
+  s_e5fab2c9a80f53::t_7839b913e1ad01 67
+vllm_omni/diffusion/registry.py
+  s_e5fab2c9a80f53::t_b605b55f1c3b32 441-446
+  s_114fde259e4299::t_4fc6b97dbe4d23 482-486
+  s_114fde259e4299::t_45747a4a342e1f 532-552
+vllm_omni/diffusion/pid/latent_forms.py
+  s_e5fab2c9a80f53::t_a83934ca78bcb8 3,5-8,10-11,13,18-25,40,43-44,59-62,107,125-139,170
+  s_e5fab2c9a80f53::t_a6c683bb1c8b44 14-16,56-57,64,104-105,108,117,122-123,141,143,145-148,150,152-153,155-156,158-161,163-167,175-176
+  s_e5fab2c9a80f53::t_7c90502240b5cc 9,12,17,28-30,32-39,41-42,45-55,58,63,65-103,106,109-116,118-121,124,140,142,144,149,151,154,157,168-169,171-174,177-187
+  s_e5fab2c9a80f53::t_8731e3fe8303ae 31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "0290bc7e99b71e1a9360b021a81e02e394675228",
+  "prompts": {},
+  "humans": {
+    "h_cc1d3e9b6b1826": {
+      "author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  },
+  "sessions": {
+    "s_114fde259e4299": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a8547a3843da19974c450d3",
+        "model": "DeepSeek-V4-Flash-Official"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "external_session_id": "6a8547a3843da19974c450d3",
+        "runtime_client": "trae-tob-git-ai",
+        "tool_use_id": "6a880a49f56d5fd14e4f1d9d",
+        "edit_kind": "file_edit",
+        "dedupe_key": "6a8547a3843da19974c450d3:6a880a49f56d5fd14e4f1d9d:afterEdit:efd01f95",
+        "tool_type": "builtin",
+        "source_scene": "agent",
+        "client_type": "ide",
+        "tool_id": "icube:applyChatSnapshotPatch",
+        "operation_id": "6a880a49f56d5fd14e4f1d9d",
+        "session_id": "6a8547a3843da19974c450d3"
+      }
+    },
+    "s_2b5d82cdd7bfd6": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a8d8a02f56d5fd14e4f1ebc",
+        "model": "DeepSeek-V4-Flash-Official"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "client_type": "ide",
+        "tool_use_id": "6a8e9691f56d5fd14e4f2111",
+        "session_id": "6a8d8a02f56d5fd14e4f1ebc",
+        "dedupe_key": "6a8d8a02f56d5fd14e4f1ebc:6a8e9691f56d5fd14e4f2111:afterEdit:e27058fa",
+        "tool_id": "icube:applyChatSnapshotPatch",
+        "tool_type": "builtin",
+        "runtime_client": "trae-tob-git-ai",
+        "edit_kind": "file_edit",
+        "external_session_id": "6a8d8a02f56d5fd14e4f1ebc",
+        "source_scene": "agent",
+        "operation_id": "6a8e9691f56d5fd14e4f2111"
+      }
+    },
+    "s_e5fab2c9a80f53": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a8d32ebf56d5fd14e4f1e1f",
+        "model": "glm-5.3-flash__dev"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "edit_kind": "file_edit",
+        "tool_type": "agent",
+        "external_session_id": "6a8d32ebf56d5fd14e4f1e1f",
+        "runtime_client": "trae-tob-git-ai",
+        "dedupe_key": "6a8d32ebf56d5fd14e4f1e1f:6a9287296f877f3bfaba2c56:afterEdit:abc272f8",
+        "client_type": "ide",
+        "source_scene": "unknown",
+        "tool_id": "Edit",
+        "tool_use_id": "6a9287296f877f3bfaba2c56",
+        "operation_id": "6a9287296f877f3bfaba2c56",
+        "session_id": "6a8d32ebf56d5fd14e4f1e1f"
+      }
+    }
+  }
+}
