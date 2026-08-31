@@ -1,0 +1,51 @@
+vllm_omni/diffusion/registry.py
+  s_e5fab2c9a80f53::t_8c72a9bc27668e 17
+vllm_omni/diffusion/pid/decoder.py
+  s_e5fab2c9a80f53::t_9a1ebc586745fc 75,82
+  s_e5fab2c9a80f53::t_4323fe1972ce37 15
+.claude/skills/add-pid-model/references/adaptation-recipe.md
+  s_e5fab2c9a80f53::t_e355df3581d56a 30-34
+.claude/skills/add-pid-model/SKILL.md
+  s_e5fab2c9a80f53::t_22bafcc6cdd7f2 131-133
+vllm_omni/diffusion/pid/runner_integration.py
+  s_e5fab2c9a80f53::t_52858011f12657 364-366,375,378
+  s_e5fab2c9a80f53::t_797ff535dfef71 130-141
+  s_e5fab2c9a80f53::t_184d45acdb72bf 56
+  s_e5fab2c9a80f53::t_78e99c96c9ff45 14
+tests/diffusion/pid/test_pid_runner_integration.py
+  s_e5fab2c9a80f53::t_8f767d9aca0d19 173-174
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "999a37cc13c80d21c87e6a6994c3791e6786b9b3",
+  "prompts": {},
+  "humans": {
+    "h_cc1d3e9b6b1826": {
+      "author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  },
+  "sessions": {
+    "s_e5fab2c9a80f53": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a8d32ebf56d5fd14e4f1e1f",
+        "model": "glm-5.3-flash__dev"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "tool_use_id": "6a929fc56f877f3bfaba2d3e",
+        "external_session_id": "6a8d32ebf56d5fd14e4f1e1f",
+        "runtime_client": "trae-tob-git-ai",
+        "edit_kind": "file_edit",
+        "tool_type": "agent",
+        "operation_id": "6a929fc56f877f3bfaba2d3e",
+        "source_scene": "unknown",
+        "tool_id": "Edit",
+        "session_id": "6a8d32ebf56d5fd14e4f1e1f",
+        "dedupe_key": "6a8d32ebf56d5fd14e4f1e1f:6a929fc56f877f3bfaba2d3e:afterEdit:6e4d35bf",
+        "client_type": "ide"
+      }
+    }
+  }
+}
