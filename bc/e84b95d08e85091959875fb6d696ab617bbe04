@@ -1,0 +1,36 @@
+tests/diffusion/pid/test_pid_latent_forms.py
+  s_8426c3d24ed3a2::t_e6018a90a0be70 63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "bce84b95d08e85091959875fb6d696ab617bbe04",
+  "prompts": {},
+  "humans": {
+    "h_cc1d3e9b6b1826": {
+      "author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  },
+  "sessions": {
+    "s_8426c3d24ed3a2": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a9532576f877f3bfaba2ddd",
+        "model": "glm-5.3-flash__dev"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "edit_kind": "bash",
+        "client_type": "ide",
+        "runtime_client": "trae-tob-git-ai",
+        "source_scene": "agent",
+        "tool_use_id": "6a9564286f877f3bfaba2e51",
+        "external_session_id": "6a9532576f877f3bfaba2ddd",
+        "session_id": "6a9532576f877f3bfaba2ddd",
+        "operation_id": "6a9564286f877f3bfaba2e51",
+        "display_model_name": "GLM-5.3-Flash",
+        "tool_name": "RunCommand"
+      }
+    }
+  }
+}
