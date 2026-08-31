@@ -1,0 +1,58 @@
+vllm_omni/diffusion/pid/pixeldit.py
+  s_8426c3d24ed3a2::t_b1080059be7152 547-557
+  s_8426c3d24ed3a2::t_b36292a97f3d95 544-546
+  s_8426c3d24ed3a2::t_cdb16fa3dfe98f 558-560
+tests/diffusion/pid/test_pid_latent_forms.py
+  s_8426c3d24ed3a2::t_ee4d78ee8aedf9 33,130-189
+  s_8426c3d24ed3a2::t_e6018a90a0be70 63
+  s_8426c3d24ed3a2::t_36ab931ec3db31 30-32
+  s_8426c3d24ed3a2::t_b47a07b11b703b 34-36,60-62
+  s_8426c3d24ed3a2::t_30d4cd7fa7c48e 64-66,127-129
+  s_8426c3d24ed3a2::t_baff9f95d59c8a 190-192
+vllm_omni/diffusion/pid/runner_integration.py
+  s_8426c3d24ed3a2::t_ee4d78ee8aedf9 109
+  s_8426c3d24ed3a2::t_7ff16bcec86350 8,13-15,17,21-30,33-37,39-41,43-48,50-89,91-108,110-116,120-374
+vllm_omni/diffusion/pid/latent_forms.py
+  s_8426c3d24ed3a2::t_1550a124a30d03 30
+  s_8426c3d24ed3a2::t_ee4d78ee8aedf9 71-146
+  s_8426c3d24ed3a2::t_00d74608d87d18 27-29
+  s_8426c3d24ed3a2::t_187f2dbb5e88c1 31-33,68-70
+  s_8426c3d24ed3a2::t_c374f13c04922d 147-149
+tests/diffusion/pid/test_pid_pipeline.py
+  s_8426c3d24ed3a2::t_ee4d78ee8aedf9 73-94
+  s_8426c3d24ed3a2::t_be2f3a59c428fa 1-72,95-222
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "54732cde0e919af9c205d5f5e2ee4e68e0f2183d",
+  "prompts": {},
+  "humans": {
+    "h_cc1d3e9b6b1826": {
+      "author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  },
+  "sessions": {
+    "s_8426c3d24ed3a2": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a9532576f877f3bfaba2ddd",
+        "model": "glm-5.3-flash__dev"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "external_session_id": "6a9532576f877f3bfaba2ddd",
+        "tool_type": "agent",
+        "runtime_client": "trae-tob-git-ai",
+        "client_type": "ide",
+        "tool_id": "Edit",
+        "source_scene": "unknown",
+        "operation_id": "6a9533616f877f3bfaba2e2b",
+        "session_id": "6a9532576f877f3bfaba2ddd",
+        "dedupe_key": "6a9532576f877f3bfaba2ddd:6a9533616f877f3bfaba2e2b:afterEdit:cc8ec998",
+        "tool_use_id": "6a9533616f877f3bfaba2e2b",
+        "edit_kind": "file_edit"
+      }
+    }
+  }
+}
