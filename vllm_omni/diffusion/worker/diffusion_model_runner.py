@@ -104,10 +104,9 @@ def _dit_any_rank_failed(local_failed: bool) -> bool:
     if not torch.distributed.is_initialized():
         return local_failed
     try:
-        from vllm_omni.diffusion.distributed import parallel_state
+        from vllm_omni.diffusion.distributed.parallel_state import get_world_group
 
-        get_dit_group = getattr(parallel_state, "get_dit_group", None)
-        group = get_dit_group() if get_dit_group is not None else None
+        group = get_world_group().device_group
     except (AssertionError, ImportError):
         group = None
     if group is None:
@@ -244,7 +243,7 @@ class DiffusionModelRunner(DiffusionStagePayloadMixin):
                 f"Diffusion KV metadata request mismatch: expected={request_id!r}, got={metadata.request_id!r}"
             )
 
-    def _compile_transformer(self, attr_name: str) -> None:
+    def _compile_transformer(self, attr_name: str, *, backend: str | Callable | None = None) -> None:
         """Compile a transformer attribute on the pipeline with torch.compile."""
         model = getattr(self.pipeline, attr_name, None)
         if model is None:
@@ -263,6 +262,12 @@ class DiffusionModelRunner(DiffusionStagePayloadMixin):
             logger.info("Model runner: %s combines CUDA graph decode with torch.compile.", attr_name)
 
         compile_granularity = self.od_config.diffusion_compile_granularity
+        if backend is not None:
+            compile_kwargs["backend"] = backend
+        # Full-transformer ACLGraph must capture one graph. Fail on a new graph
+        # break instead of silently producing multiple captured segments.
+        if compile_granularity == "full" and self.od_config.diffusion_compile_aclgraph:
+            compile_kwargs["fullgraph"] = True
         try:
             if compile_granularity == "full":
                 model.compile(**compile_kwargs)
@@ -271,6 +276,8 @@ class DiffusionModelRunner(DiffusionStagePayloadMixin):
                 compiled_model = regionally_compile(model, **compile_kwargs)
             setattr(self.pipeline, attr_name, compiled_model)
         except Exception as e:
+            if self.od_config.diffusion_compile_backend != "auto":
+                raise RuntimeError(f"Requested diffusion compile setup failed for {attr_name}.") from e
             logger.warning(
                 "Model runner: %s torch.compile setup for %s failed before activation: %s. "
                 "Continuing with the uncompiled model; lazy compilation errors can still "
@@ -288,6 +295,32 @@ class DiffusionModelRunner(DiffusionStagePayloadMixin):
             compile_granularity,
             compile_kwargs["dynamic"],
         )
+
+    def _compile_model(self, backend: str | Callable | None) -> None:
+        if self.od_config.enforce_eager:
+            return
+        if backend is None:
+            logger.warning(
+                "Model runner: No diffusion compile backend selected for %s; running eagerly.",
+                current_omni_platform.get_torch_device(),
+            )
+            return
+        pipeline = self.pipeline
+        if backend == "inductor" and pipeline is not None and hasattr(pipeline, "setup_compile"):
+            try:
+                pipeline.setup_compile()
+            except Exception as exc:
+                if self.od_config.diffusion_compile_backend != "auto":
+                    raise RuntimeError(
+                        "Requested diffusion compile setup failed for pipeline.setup_compile()."
+                    ) from exc
+                logger.warning("Model runner: setup_compile() failed (%s); running without compile.", exc)
+        else:
+            transformer_attrs = getattr(pipeline, "_dit_modules", None)
+            if not transformer_attrs:
+                transformer_attrs = ("transformer", "transformer_2")
+            for attr_name in transformer_attrs:
+                self._compile_transformer(attr_name, backend=backend)
 
     def load_model(
         self,
@@ -331,6 +364,11 @@ class DiffusionModelRunner(DiffusionStagePayloadMixin):
                 "AllGather across data-parallel ranks; disable the cache or use "
                 "rank-local text_encoder transfer."
             )
+        compile_backend = (
+            None
+            if self.od_config.enforce_eager
+            else current_omni_platform.get_diffusion_compile_backend(self.od_config)
+        )
 
         current_omni_platform.init_diffusion_model_runner_runtime(
             vllm_config=self.vllm_config,
@@ -392,28 +430,7 @@ class DiffusionModelRunner(DiffusionStagePayloadMixin):
             device=self.device,
         )
 
-        # Apply torch.compile if not in eager mode
-        if not self.od_config.enforce_eager:
-            if current_omni_platform.supports_torch_inductor():
-                if hasattr(self.pipeline, "setup_compile"):
-                    try:
-                        self.pipeline.setup_compile()
-                    except Exception as exc:
-                        logger.warning(
-                            "Model runner: setup_compile() failed (%s); running without compile.",
-                            exc,
-                        )
-                else:
-                    transformer_attrs = getattr(self.pipeline, "_dit_modules", None)
-                    if not transformer_attrs:
-                        transformer_attrs = ("transformer", "transformer_2")
-                    for attr_name in transformer_attrs:
-                        self._compile_transformer(attr_name)
-            else:
-                logger.warning(
-                    "Model runner: Platform %s does not support torch inductor, skipping torch.compile.",
-                    current_omni_platform.get_torch_device(),
-                )
+        self._compile_model(compile_backend)
 
         # Setup cache backend
         self.cache_backend = get_cache_backend(self.od_config.cache_backend, self.od_config.cache_config)
@@ -426,7 +443,7 @@ class DiffusionModelRunner(DiffusionStagePayloadMixin):
                     self.od_config.model_class_name,
                 )
                 self.cache_backend = None
-                self.od_config.cache_backend = None
+                self.od_config.cache_backend = "none"
             else:
                 # Install configured cache capability once at startup. A model
                 # may explicitly adopt the enabled Cache-DiT backend and then
@@ -1119,6 +1136,7 @@ class DiffusionModelRunner(DiffusionStagePayloadMixin):
                     prepared_layout=getattr(sched_new_req.req, "prepared_layout", None),
                     external_req_id=getattr(sched_new_req.req, "external_req_id", None),
                 )
+                new_state.extra["_runner_original_request"] = sched_new_req.req
                 if (
                     sched_new_req.diffusion_kv_metadata is not None
                     and getattr(self.od_config, "kv_transfer_config", None) is not None
@@ -1465,7 +1483,10 @@ class DiffusionModelRunner(DiffusionStagePayloadMixin):
                                 else req.denoise_completed
                             )
                             if finished and result is not None:
-                                self._maybe_send_stage_payload([req], [result])  # type: ignore[list-item]
+                                original_request = req.extra.get("_runner_original_request")
+                                if not isinstance(original_request, OmniDiffusionRequest):
+                                    raise RuntimeError(f"Missing original request for {req.request_id}.")
+                                self._maybe_send_stage_payload([original_request], [result])
                             runner_output_list.append(
                                 RunnerOutput(
                                     request_id=req.request_id,

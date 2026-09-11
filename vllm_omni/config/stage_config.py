@@ -478,8 +478,10 @@ class StageDeployConfig:
     diffusion_attention_config: dict[str, Any] | None = None
 
     # Diffusion execution, cache, and VAE behavior.
+    diffusion_compile_backend: str | None = None
     diffusion_compile_granularity: str | None = None
     diffusion_compile_dynamic: bool | None = None
+    diffusion_compile_aclgraph: bool | None = None
     # CUDA graph capture of fixed-shape KV-cache decode steps (Qwen-Image-2.1
     # today). Independent of compilation_config.cudagraph_mode;
     # enforce_eager=True also disables it.
