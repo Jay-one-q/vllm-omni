@@ -1,0 +1,19 @@
+vllm_omni/diffusion/worker/diffusion_model_runner.py
+  s_3e5498719a1c49::t_237fc7371036ba 61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "0b4266684924078a2d703d201e1cad3366112bc9",
+  "prompts": {},
+  "sessions": {
+    "s_3e5498719a1c49": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a9d3b446f877f3bfaba38e9",
+        "model": "glm-5.3-flash__dev"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>"
+    }
+  }
+}
