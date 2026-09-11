@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM-Omni project
 
+from collections.abc import Callable
 from contextlib import nullcontext
 from functools import cache
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import torch
 import torch.nn as nn
@@ -15,7 +16,11 @@ from vllm_ascend.platform import NPUPlatform
 from vllm_omni.diffusion.attention.backends.registry import DiffusionAttentionBackendEnum
 from vllm_omni.platforms.interface import OmniPlatform, OmniPlatformEnum
 
+if TYPE_CHECKING:
+    from vllm_omni.diffusion.data import OmniDiffusionConfig
+
 logger = init_logger(__name__)
+
 
 _DIFFUSION_PACKED_MODULES_MAPPING = {
     "HunyuanImage3Pipeline": {
@@ -56,6 +61,30 @@ def apply_contiguous_kv_patch() -> None:
     from vllm_ascend.attention import utils
 
     utils.requires_contiguous_pa_kv_cache.__code__ = _requires_contiguous_kv_cache.__code__
+
+
+def _get_mindiesd_incompatibility(od_config: "OmniDiffusionConfig") -> str | None:
+    if od_config.diffusion_compile_dynamic:
+        return "MindIE-SD requires diffusion_compile_dynamic=False."
+    if od_config.dtype != torch.bfloat16 or od_config.quantization_config is not None:
+        return "MindIE-SD requires unquantized BF16 weights."
+    if od_config.parallel_config.world_size != 1:
+        return "MindIE-SD currently requires a single NPU."
+    if (
+        od_config.enable_cpu_offload
+        or od_config.enable_layerwise_offload
+        or od_config.enable_distributed_layerwise_offload
+    ):
+        return "MindIE-SD does not support CPU or layerwise offload."
+    if od_config.cache_backend not in (None, "none"):
+        return "MindIE-SD requires cache_backend='none'."
+    if od_config.lora_path or od_config.enable_sleep_mode:
+        return "MindIE-SD does not support LoRA or sleep mode."
+    if od_config.diffusion_compile_granularity == "full" and (
+        od_config.parallel_config.use_hsdp or (od_config.parallel_config.sequence_parallel_size or 1) > 1
+    ):
+        return "MindIE-SD full compilation does not support HSDP or sequence parallelism."
+    return None
 
 
 class NPUOmniPlatform(OmniPlatform, NPUPlatform):
@@ -361,6 +390,39 @@ class NPUOmniPlatform(OmniPlatform, NPUPlatform):
     @classmethod
     def supports_torch_inductor(cls) -> bool:
         return False
+
+    @classmethod
+    def get_diffusion_compile_backend(
+        cls,
+        od_config: "OmniDiffusionConfig",
+    ) -> Callable | None:
+        try:
+            from mindiesd.compilation import CompilationConfig, MindieSDBackend
+        except (ImportError, OSError) as exc:
+            logger.warning(
+                "MindIE-SD is installed but could not be imported (%s); running the diffusion pipeline eagerly. "
+                "Install a build compatible with PyTorch, torch_npu and CANN, or uninstall MindIE-SD.",
+                exc,
+            )
+            return None
+
+        incompatibility = _get_mindiesd_incompatibility(od_config)
+        if incompatibility is not None:
+            logger.info("%s Running the diffusion pipeline eagerly.", incompatibility)
+            return None
+
+        # Keep only generic patterns: model-specific residual-gate fusion showed
+        # no end-to-end benefit and increased output divergence, so it stays off
+        # regardless of the mindiesd build's defaults.
+        fusion_patterns = getattr(CompilationConfig, "fusion_patterns", None)
+        if fusion_patterns is not None:
+            for gate_flag in ("enable_wan_residual_gate", "enable_qwen_residual_gate"):
+                if hasattr(fusion_patterns, gate_flag):
+                    setattr(fusion_patterns, gate_flag, False)
+
+        backend = MindieSDBackend()
+        logger.info("Selected MindIE-SD diffusion backend (generic pattern fusion only).")
+        return backend
 
     @classmethod
     def get_torch_device(cls, local_rank: int | None = None) -> torch.device:

@@ -644,7 +644,7 @@ def test_serve_cli_forwards_hwr_policy_for_no_allgather_dlo():
 
 
 def test_serve_cli_accepts_diffusion_compile_controls():
-    """Ensure both compile controls reach the diffusion stage."""
+    """Ensure compile controls reach the diffusion stage."""
     parser = TrackingArgumentParser()
     subparsers = parser.add_subparsers(dest="command")
     OmniServeCommand().subparser_init(subparsers)

@@ -20,6 +20,13 @@ from vllm_omni.diffusion.models.progress_bar import ProgressBarMixin
 logger = logging.getLogger(__name__)
 
 
+def canonicalize_qwen_image_attention_mask(mask: torch.Tensor | None) -> torch.Tensor | None:
+    """Drop an all-valid prompt mask after request batching is complete."""
+    if mask is not None and bool(mask.all()):
+        return None
+    return mask
+
+
 class QwenImageCFGParallelMixin(CFGParallelMixin, ProgressBarMixin):
     """
     Base Mixin class for Qwen Image pipelines providing shared CFG methods.
@@ -68,6 +75,8 @@ class QwenImageCFGParallelMixin(CFGParallelMixin, ProgressBarMixin):
         """
         self.scheduler.set_begin_index(0)
         additional_transformer_kwargs = additional_transformer_kwargs or {}
+        prompt_embeds_mask = canonicalize_qwen_image_attention_mask(prompt_embeds_mask)
+        negative_prompt_embeds_mask = canonicalize_qwen_image_attention_mask(negative_prompt_embeds_mask)
 
         with self.progress_bar(total=len(timesteps)) as pbar:
             for i, t in enumerate(timesteps):
