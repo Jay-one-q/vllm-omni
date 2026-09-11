@@ -1,0 +1,51 @@
+.claude/skills/add-pid-model/references/adaptation-recipe.md
+  s_3e5498719a1c49::t_b1b2dc08fa9cfe 62,238,268
+docs/design/feature/pid_decode.md
+  s_3e5498719a1c49::t_4f12e56f5041a8 94,102,155,158,387,399,413
+vllm_omni/diffusion/pid/runner_integration.py
+  s_3e5498719a1c49::t_d3d119cc53924d 38,244,266,268,329-330
+examples/offline_inference/text_to_image/text_to_image.py
+  s_3e5498719a1c49::t_38dd2da80195e6 380,384
+  s_3e5498719a1c49::t_03e5585b150ae6 504-506
+tests/diffusion/pid/test_pid_runner_integration.py
+  s_3e5498719a1c49::t_29bb86dd4a1e21 122,300
+tests/e2e/accuracy/test_qwen_image_pid_accuracy.py
+  s_3e5498719a1c49::t_838832de32a968 39
+tests/dfx/reliability/invalid_param_test/test_invalid_pid_params.py
+  s_3e5498719a1c49::t_57e3857bbb1c7c 25,57,74
+.claude/skills/add-pid-model/SKILL.md
+  s_3e5498719a1c49::t_90141301d1a142 189,210,212,218
+vllm_omni/entrypoints/cli/serve.py
+  s_3e5498719a1c49::t_b7ff94b9cc7de7 808
+vllm_omni/engine/async_omni_engine.py
+  s_3e5498719a1c49::t_3183f82e72f8df 161,164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.2",
+  "base_commit_sha": "1937e0f81166903f27e1a249d827c2d7a2eb350b",
+  "prompts": {},
+  "sessions": {
+    "s_3e5498719a1c49": {
+      "agent_id": {
+        "tool": "trae",
+        "id": "6a9d3b446f877f3bfaba38e9",
+        "model": "glm-5.3-flash__dev"
+      },
+      "human_author": "qinhuaisheng <qinhuaisheng@h-partners.com>",
+      "custom_attributes": {
+        "client_type": "ide",
+        "tool_type": "agent",
+        "dedupe_key": "6a9d3b446f877f3bfaba38e9:6aa358f76f877f3bfaba3977:afterEdit:52e50e47",
+        "runtime_client": "trae-tob-git-ai",
+        "operation_id": "6aa358f76f877f3bfaba3977",
+        "tool_use_id": "6aa358f76f877f3bfaba3977",
+        "external_session_id": "6a9d3b446f877f3bfaba38e9",
+        "session_id": "6a9d3b446f877f3bfaba38e9",
+        "source_scene": "unknown",
+        "edit_kind": "file_edit",
+        "tool_id": "Edit"
+      }
+    }
+  }
+}
