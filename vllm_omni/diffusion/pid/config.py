@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM-Omni project
 """PiD network & sampling config registry for all supported backbones.
 
 All backbones share the same PixDiT_T2I architecture; only the LQ-related
@@ -9,14 +9,10 @@ Backbone -> VAE characteristics:
     Qwen-Image:  16ch latent, 8x spatial compression
     Flux1:       16ch latent, 8x spatial compression
     SD3:         16ch latent, 8x spatial compression
-    SDXL:         4ch latent, 8x spatial compression
     Flux2:      128ch latent, 16x spatial compression (2x2 patchify -> 32 raw ch)
 """
 
 from __future__ import annotations
-
-from dataclasses import dataclass, field
-from typing import Literal
 
 # ---------------------------------------------------------------------------
 # Shared PixDiT_T2I backbone args (identical across all backbones)
@@ -85,7 +81,6 @@ def _make_net_config(
 QWENIMAGE_PID_NET_CONFIG = _make_net_config(lq_latent_channels=16, latent_spatial_down_factor=8)
 FLUX_PID_NET_CONFIG = _make_net_config(lq_latent_channels=16, latent_spatial_down_factor=8)
 SD3_PID_NET_CONFIG = _make_net_config(lq_latent_channels=16, latent_spatial_down_factor=8)
-SDXL_PID_NET_CONFIG = _make_net_config(lq_latent_channels=4, latent_spatial_down_factor=8)
 FLUX2_PID_NET_CONFIG = _make_net_config(
     lq_latent_channels=128, latent_spatial_down_factor=16, lq_latent_unpatchify_factor=2
 )
@@ -135,36 +130,7 @@ PID_CHECKPOINT_REGISTRY: dict[str, tuple[str, str, int]] = {
         f"{_PID_CKPT_ROOT}/PiD_res2kto4k_sr4x_official_sd3_distill_4step/model_ema_bf16.pth",
         4,
     ),
-    "sdxl": (
-        "PiD_res2kto4k_sr4x_official_sdxl_distill_4step",
-        f"{_PID_CKPT_ROOT}/PiD_res2kto4k_sr4x_official_sdxl_distill_4step/model_ema_bf16.pth",
-        4,
-    ),
 }
-
-# ---------------------------------------------------------------------------
-# Typed config wrappers
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class PidNetConfig:
-    """Typed wrapper for a backbone-specific PidNet constructor args."""
-
-    backbone: Literal["qwenimage", "flux", "sd3", "sdxl", "flux2"] = "qwenimage"
-    net_kwargs: dict = field(default_factory=lambda: dict(QWENIMAGE_PID_NET_CONFIG))
-
-
-@dataclass
-class PidSamplingConfig:
-    """Typed wrapper for sampling parameters."""
-
-    sampling_kwargs: dict = field(default_factory=lambda: dict(PID_SAMPLING_CONFIG))
-
-
-# ---------------------------------------------------------------------------
-# Convenience getters
-# ---------------------------------------------------------------------------
 
 
 def get_pid_net_config(backbone: str) -> dict:
@@ -173,14 +139,8 @@ def get_pid_net_config(backbone: str) -> dict:
         "qwenimage": QWENIMAGE_PID_NET_CONFIG,
         "flux": FLUX_PID_NET_CONFIG,
         "sd3": SD3_PID_NET_CONFIG,
-        "sdxl": SDXL_PID_NET_CONFIG,
         "flux2": FLUX2_PID_NET_CONFIG,
     }
     if backbone not in mapping:
         raise ValueError(f"Unknown backbone: {backbone}. Choose from {list(mapping.keys())}.")
     return dict(mapping[backbone])
-
-
-def get_pid_sampling_config() -> dict:
-    """Return a copy of the shared sampling config."""
-    return dict(PID_SAMPLING_CONFIG)

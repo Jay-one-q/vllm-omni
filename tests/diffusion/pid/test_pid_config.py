@@ -14,7 +14,6 @@ pytestmark = [pytest.mark.core_model, pytest.mark.diffusion, pytest.mark.cpu]
         ("qwenimage", 16, 8),
         ("flux", 16, 8),
         ("sd3", 16, 8),
-        ("sdxl", 4, 8),
         ("flux2", 128, 16),
     ],
 )

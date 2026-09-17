@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM-Omni project
 """Gemma-2-2b-it text encoder for PiD.
 
 Loads via :func:`from_pretrained_with_prefetch` (HF-cache-tolerant, parallel
@@ -38,36 +38,21 @@ _CHI_PROMPT = [
 # Matches PidNet's txt_max_length (see config.py _SHARED_BACKBONE).
 _MODEL_MAX_LENGTH = 300
 
-# Mapping PidDecodeConfig.precision -> torch dtype.
-_DTYPE_MAP = {
-    "float32": torch.float32,
-    "float16": torch.float16,
-    "bfloat16": torch.bfloat16,
-}
-
 
 class GemmaTextEncoder(nn.Module):
     def __init__(
         self,
         model_id: str = "Efficient-Large-Model/gemma-2-2b-it",
-        precision: str = "bfloat16",
     ):
         super().__init__()
-        if precision not in _DTYPE_MAP:
-            raise ValueError(f"precision must be one of {list(_DTYPE_MAP)}, got {precision!r}")
-        dtype = _DTYPE_MAP[precision]
-
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
         self.tokenizer.padding_side = "right"
-
-        # Use the vllm-omni cache-tolerant loader. Gemma's weights live at the
-        # repo root (no subfolder); pass subfolder="" and prefetch_list=().
         decoder = from_pretrained_with_prefetch(
             AutoModelForCausalLM.from_pretrained,
             model_id,
             subfolder="",
             prefetch_list=(),
-            torch_dtype=dtype,
+            torch_dtype=torch.bfloat16,
         ).get_decoder()
         self.model = decoder.to(get_local_device())
         self.model.eval()

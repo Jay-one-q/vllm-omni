@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM-Omni project
 """Centralized latent-form adaptation table (Plan B).
 
 Maps each pipeline family to (PiD backbone, ``to_x0`` pure function) that
@@ -96,7 +96,7 @@ def _identity(
     *,
     pipeline: object | None = None,
 ) -> tuple[torch.Tensor, int, int]:
-    """ZImage / SD3 / SDXL family: native 4D grid is already x_0."""
+    """ZImage / SD3 family: native 4D grid is already x_0."""
     del pipeline
     if latent.dim() == 5:
         latent = latent.squeeze(2)
@@ -159,7 +159,6 @@ LATENT_FORMS: dict[str, LatentForm] = {
     "Flux2Pipeline": LatentForm("flux2", _patchify_and_normalize),
     "Flux2KleinPipeline": LatentForm("flux2", _patchify_and_normalize),
     "StableDiffusion3Pipeline": LatentForm("sd3", _identity),
-    "StableDiffusionXLPipeline": LatentForm("sdxl", _identity),
 }
 
 

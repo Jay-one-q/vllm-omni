@@ -74,7 +74,7 @@ def test_unpack_packed_2x2_token_mismatch_raises():
         _unpack_packed_2x2(tokens, 1024, 1024, _VSF)
 
 
-# -- _identity (ZImage / SD3 / SDXL family) ----------------------------------
+# -- _identity (ZImage / SD3 family) ------------------------------------------
 
 
 def test_identity_passthrough():
