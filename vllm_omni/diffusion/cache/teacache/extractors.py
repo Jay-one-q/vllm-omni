@@ -1791,6 +1791,10 @@ def extract_cosmos3_context(
         extra_states={
             "sea_cache_latents": [*controls, hidden_states],
             "sea_cache_noisy_frame_mask": noisy_frame_mask,
+            # SenCache needs the model-space noisy latent and raw timestep;
+            # neither is available once the GEN prep has been packed.
+            "sencache_latent": hidden_states,
+            "sencache_timestep": timestep,
         },
     )
 

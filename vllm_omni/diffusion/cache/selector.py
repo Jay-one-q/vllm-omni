@@ -7,6 +7,7 @@ from vllm_omni.diffusion.cache.base import CacheBackend
 from vllm_omni.diffusion.cache.cachedit import CacheDiTBackend
 from vllm_omni.diffusion.cache.magcache import MagCacheBackend
 from vllm_omni.diffusion.cache.seacache import SeaCacheBackend
+from vllm_omni.diffusion.cache.sencache import SenCacheBackend
 from vllm_omni.diffusion.cache.stepcache import StepCacheBackend
 from vllm_omni.diffusion.cache.teacache import TeaCacheBackend
 from vllm_omni.diffusion.data import DiffusionCacheConfig
@@ -20,11 +21,12 @@ def get_cache_backend(cache_backend: str | None, cache_config: Any) -> CacheBack
     - tea_cache: Uses TeaCacheBackend with enable()/refresh() interface
     - mag_cache: Uses MagCacheBackend with enable()/refresh() interface
     - sea_cache: Uses SeaCacheBackend for spectral residual caching
+    - sen_cache: Uses SenCacheBackend for sensitivity-aware residual caching
     - step_cache: Uses StepCacheBackend for DreamZero velocity step skip
 
     Args:
         cache_backend: Cache backend name ("cache_dit", "tea_cache",
-            "mag_cache", "sea_cache", "step_cache", or None).
+            "mag_cache", "sea_cache", "sen_cache", "step_cache", or None).
         cache_config: Cache configuration (dict or DiffusionCacheConfig instance).
 
     Returns:
@@ -47,10 +49,13 @@ def get_cache_backend(cache_backend: str | None, cache_config: Any) -> CacheBack
         return MagCacheBackend(cache_config)
     elif cache_backend == "sea_cache":
         return SeaCacheBackend(cache_config)
+    elif cache_backend in ("sen_cache", "sencache"):
+        return SenCacheBackend(cache_config)
     elif cache_backend in ("step_cache", "stepcache", "step_cache_dit"):
         return StepCacheBackend(cache_config)
     else:
         raise ValueError(
             f"Unsupported cache backend: {cache_backend}. "
-            "Supported: 'cache_dit', 'tea_cache', 'mag_cache', 'sea_cache', 'step_cache'"
+            "Supported: 'cache_dit', 'tea_cache', 'mag_cache', 'sea_cache', "
+            "'sen_cache', 'step_cache'"
         )

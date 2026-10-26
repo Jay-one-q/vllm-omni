@@ -577,6 +577,9 @@ class DiffusionCacheConfig:
                     mag_ratios, mag_calibrate
         - SeaCache: sea_threshold, sea_residual_order,
                     sea_max_consecutive_cached, sea_power_exp
+        - SenCache: sen_profile_path, sen_threshold_start, sen_threshold_main,
+                    sen_start_fraction, sen_max_consecutive_reuses,
+                    sen_time_max, sen_calibration_output
         - step_cache: step_cache_dit_enabled, velocity_sim_thresholds,
                           velocity_skip_countdowns, step_cache_dit_min_history
 
@@ -601,6 +604,22 @@ class DiffusionCacheConfig:
     sea_residual_order: int = 1
     sea_max_consecutive_cached: int = 2
     sea_power_exp: float = 3.0
+
+    # SenCache parameters [sen_cache only]
+    # Tolerance is an RMS output-change budget, not the paper's raw-L2 value.
+    sen_threshold_start: float = 0.02
+    sen_threshold_main: float = 0.08
+    # Fraction of the denoising steps that uses the strict early threshold.
+    sen_start_fraction: float = 0.2
+    # Maximum consecutive cache reuses before a forced refresh (K).
+    sen_max_consecutive_reuses: int = 2
+    # Calibrated sensitivity profile (alpha_x / alpha_t per timestep bin).
+    sen_profile_path: str | None = None
+    # Raw model timestep scale used to bin the profile (Cosmos3 uses [0, 1000]).
+    sen_time_max: float = 1000.0
+    # Calibration mode: run every step full and write an artifact per request.
+    sen_calibration_output: str | None = None
+    sen_calibration_time_bins: int = 128
 
     # MagCache parameters [mag_cache only]
     # Default: 0.24 threshold for accumulated magnitude error
