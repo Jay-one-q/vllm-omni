@@ -16,7 +16,6 @@ step, which is what makes the decision sample specific.
 from __future__ import annotations
 
 import math
-import os
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
@@ -24,7 +23,11 @@ from typing import Any
 import torch
 from vllm.logger import init_logger
 
-from vllm_omni.diffusion.cache.sencache.calibrate import ProfileAccumulator
+from vllm_omni.diffusion.cache.sencache.calibrate import (
+    ProfileAccumulator,
+    merge_into_file,
+    profile_issues,
+)
 from vllm_omni.diffusion.cache.sencache.config import SenCacheConfig
 from vllm_omni.diffusion.cache.sencache.profile import SensitivityProfile
 from vllm_omni.diffusion.cache.sencache.state import SenCacheState
@@ -401,17 +404,41 @@ class SenCacheHook(ModelHook):
         if output is None:
             return None
         base = output[:-4] if output.endswith(".npz") else output
-        return f"{base}.{os.getpid()}.npz"
+        return f"{base}.npz"
+
+    def _reset_accumulator(self) -> None:
+        """Start a fresh per-request accumulator after a successful merge."""
+        if self.calibrator is None:
+            return
+        self.calibrator = ProfileAccumulator(
+            time_max=self.calibrator.time_max,
+            metadata=dict(self.calibrator.metadata),
+            num_bins=self.calibrator.num_bins,
+        )
 
     def _write_calibration(self) -> None:
         if self.calibrator is None or self._calibration_path is None or self._calibration_done:
             return
         try:
-            self.calibrator.save(self._calibration_path)
-            logger.info("SenCache wrote calibration artifact: %s", self._calibration_path)
+            merged = merge_into_file(self._calibration_path, self.calibrator)
+            profile = merged.finalize()
+            occupied = merged.count > 0 if merged.count is not None else None
+            issues = profile_issues(profile, occupied=occupied)
+            for issue in issues:
+                logger.warning("SenCache calibration profile check: %s", issue)
+            if not issues:
+                sampled = int(occupied.sum()) if occupied is not None else -1
+                logger.info(
+                    "SenCache calibration profile check passed: %s (bins=%d, sampled=%d)",
+                    self._calibration_path,
+                    profile.time_bins.shape[0],
+                    sampled,
+                )
+            self._reset_accumulator()
+            logger.info("SenCache merged calibration artifact: %s", self._calibration_path)
         except Exception as error:
             logger.warning(
-                "SenCache failed to write calibration artifact %s: %s",
+                "SenCache failed to merge calibration artifact %s: %s",
                 self._calibration_path,
                 error,
             )

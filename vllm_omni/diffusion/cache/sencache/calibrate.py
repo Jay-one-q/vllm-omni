@@ -5,9 +5,13 @@
 
 The inference hook can run in calibration mode: every cacheable step is
 executed and two probe forwards estimate ``alpha_x`` and ``alpha_t`` at the
-current timestep. Each calibration request writes one accumulator artifact;
-``merge`` averages artifacts from several prompts before the profile is used
-for inference.
+current timestep. All ranks of one deployment merge their samples into a
+single shared artifact under an exclusive file lock, so no manual merge is
+needed for the common case. ``merge`` remains available for legacy artifacts
+that were written by older versions (one file per process).
+
+``inspect`` prints a finalized profile and runs the same sanity checks that
+are executed automatically after every calibration merge.
 
 Usage::
 
@@ -23,11 +27,13 @@ import argparse
 import glob
 import json
 import math
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+from filelock import FileLock
 
 from vllm_omni.diffusion.cache.sencache.profile import (
     SCHEMA_VERSION,
@@ -176,12 +182,97 @@ def merge_files(inputs: list[str | Path], output: str | Path) -> ProfileAccumula
     return accumulator
 
 
+def merge_into_file(
+    path: str | Path,
+    accumulator: ProfileAccumulator,
+    *,
+    lock_timeout: float = 120.0,
+) -> ProfileAccumulator:
+    """Merge ``accumulator`` into one shared artifact under an exclusive lock.
+
+    Every worker process of a deployment points at the same path, so the
+    read-merge-write cycle must be serialized. The artifact is written to a
+    temporary file and replaced atomically to avoid readers observing a
+    partially written npz.
+
+    Returns the merged accumulator (the one persisted on disk).
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with FileLock(f"{path}.lock", timeout=lock_timeout):
+        merged = accumulator
+        if path.is_file():
+            existing = ProfileAccumulator.load(path)
+            existing.merge(accumulator)
+            merged = existing
+        temp = path.with_name(f"{path.name}.tmp.{os.getpid()}.npz")
+        try:
+            merged.save(temp)
+            os.replace(temp, path)
+        finally:
+            if temp.exists():
+                temp.unlink()
+    return merged
+
+
+def profile_issues(
+    profile: SensitivityProfile,
+    *,
+    occupied: np.ndarray | None = None,
+) -> list[str]:
+    """Return human-readable sanity warnings for a finalized profile.
+
+    Structural problems (non-finite values, negative entries, non-monotonic
+    time bins) already raise while loading; this function covers the semantic
+    checks that a caller can still act on. An empty list means the profile
+    looks usable.
+    """
+    issues: list[str] = []
+    metadata_time_max = profile.metadata.get("time_max")
+    if metadata_time_max is not None:
+        try:
+            mismatch = abs(float(metadata_time_max) - profile.time_max) > 1e-9
+        except (TypeError, ValueError):
+            issues.append(f"metadata time_max is not numeric: {metadata_time_max!r}")
+        else:
+            if mismatch:
+                issues.append(
+                    f"metadata time_max ({metadata_time_max}) does not match the time grid "
+                    f"({profile.time_max})"
+                )
+    if not np.any(profile.alpha_x > 0.0):
+        issues.append("alpha_x is zero everywhere; the gate would ignore latent movement")
+    if not np.any(profile.alpha_t > 0.0):
+        issues.append(
+            "alpha_t is zero everywhere; the timestep probes did not change the output "
+            "(check that the model actually consumes the timestep)"
+        )
+    if occupied is not None:
+        sampled = int(np.count_nonzero(occupied))
+        total = int(occupied.shape[0])
+        if sampled == 0:
+            issues.append("profile contains no calibration samples")
+        elif sampled < min(4, total):
+            issues.append(f"only {sampled} of {total} timestep bins were sampled")
+    return issues
+
+
 def _print_profile(profile: SensitivityProfile) -> None:
     print(f"time_max={profile.time_max} bins={profile.time_bins.shape[0]}")
     print("metadata=" + json.dumps(profile.metadata, sort_keys=True))
     print(f"{'t':>8}  {'alpha_x':>12}  {'alpha_t':>12}")
     for normalized, alpha_x, alpha_t in zip(profile.time_bins, profile.alpha_x, profile.alpha_t, strict=True):
         print(f"{normalized * profile.time_max:8.1f}  {alpha_x:12.6f}  {alpha_t:12.6f}")
+
+
+def _print_check(profile: SensitivityProfile, occupied: np.ndarray | None = None) -> None:
+    issues = profile_issues(profile, occupied=occupied)
+    if not issues:
+        print("profile check: OK")
+        return
+    print("profile check: WARNING")
+    for issue in issues:
+        print(f"  - {issue}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -192,7 +283,7 @@ def main(argv: list[str] | None = None) -> int:
     merge.add_argument("--inputs", nargs="+", required=True, help="Artifact paths or glob patterns")
     merge.add_argument("--out", required=True, help="Output profile path")
 
-    inspect = sub.add_parser("inspect", help="Print a finalized profile")
+    inspect = sub.add_parser("inspect", help="Print a finalized profile and check its sanity")
     inspect.add_argument("--profile", required=True)
 
     args = parser.parse_args(argv)
@@ -202,11 +293,21 @@ def main(argv: list[str] | None = None) -> int:
             matched = sorted(glob.glob(pattern))
             paths.extend(matched if matched else [pattern])
         accumulator = merge_files(paths, args.out)
-        _print_profile(accumulator.finalize())
+        profile = accumulator.finalize()
+        _print_profile(profile)
+        _print_check(profile, accumulator.count > 0)
         print(f"wrote {args.out}")
         return 0
 
-    _print_profile(SensitivityProfile.load(args.profile))
+    profile = SensitivityProfile.load(args.profile)
+    _print_profile(profile)
+    occupied = None
+    try:
+        occupied = ProfileAccumulator.load(args.profile).count > 0
+    except ValueError:
+        # Finalized-only profiles keep no raw sample counts.
+        pass
+    _print_check(profile, occupied)
     return 0
 
 

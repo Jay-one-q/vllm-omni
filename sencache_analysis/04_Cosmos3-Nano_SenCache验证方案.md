@@ -103,9 +103,9 @@ J_t(t_k) ≈ rms(f(x_k, t_{k+1}) - y_k) / |t_{k+1} - t_k|        # 固定 latent
 
 **为什么约为正常推理的 3 倍开销**：每步 = 1 次真实前向 + 2 次探针前向。这也是标定只跑 4~8 条 prompt、并且建议用小分辨率 PoC 的原因。
 
-**为什么要多个 prompt**：单条轨迹的 `J` 方差大，且只覆盖一种运动模式。论文显示 8 条多样视频已足够稳定；`merge` 按每个时间箱的样本数加权平均，空箱用最近邻填充。
+**为什么要多个 prompt**：单条轨迹的 `J` 方差大，且只覆盖一种运动模式。论文显示 8 条多样视频已足够稳定；所有请求的样本按时间箱累加求均值，空箱用最近邻填充。
 
-**产物**：`/tmp/sen/cosmos3_nano_calib.<pid>.npz`。它绑定模型、缓存边界、shape、步数、scheduler/flow_shift 和 CFG 配置；换任一条件都应重新标定。
+**产物**：`/tmp/sen/cosmos3_nano_calib.npz`（单一共享文件）。它绑定模型、缓存边界、shape、步数、scheduler/flow_shift 和 CFG 配置；换任一条件都应重新标定。
 
 ```bash
 mkdir -p /tmp/sen
@@ -132,41 +132,56 @@ curl -X POST http://localhost:8000/v1/videos/sync \
 预期日志：
 
 ```text
-SenCache calibration mode: every step runs full; artifacts will be written to /tmp/sen/cosmos3_nano_calib.<pid>.npz
-SenCache wrote calibration artifact: /tmp/sen/cosmos3_nano_calib.<pid>.npz
+SenCache calibration mode: every step runs full; samples from all ranks are merged into a single shared .npz under /tmp/sen/cosmos3_nano_calib
+SenCache calibration profile check passed: /tmp/sen/cosmos3_nano_calib.npz (bins=128, sampled=..)
+SenCache merged calibration artifact: /tmp/sen/cosmos3_nano_calib.npz
 ```
 
-同一个 server 进程内多次请求会**累加并覆盖**同一个 `<pid>` 文件；换进程/换卡才会产生新文件，这也是需要 merge 的原因。
+所有 worker 进程对同一个路径做"加锁 → 读取已有产物 → 合并 → 原子替换"，所以：
 
-### 4.2 合并并检查 profile
+- **一次部署只产生一个 `.npz`**，后续每条请求的数据自动累加进去，不需要手工 merge；
+- 多节点部署要求该路径位于共享文件系统；若各节点写本地 `/tmp`，仍会各有一份；
+- 同目录会出现一个 `<name>.npz.lock` 文件，用于跨进程互斥，可保留。
+
+### 4.2 检查 profile（merge 仅用于历史产物）
+
+标定结束时已经自动合并并检查，通常只需要 `inspect`：
+
+```bash
+python -m vllm_omni.diffusion.cache.sencache.calibrate inspect \
+  --profile /tmp/sen/cosmos3_nano_calib.npz
+```
+
+`inspect` 做两件事：打印时间网格与逐箱 `alpha_x/alpha_t`，并跑与在线写入相同的语义检查（`profile check: OK` 或列出 WARNING）。
+
+只有当产物来自旧版本（每进程一个 `<pid>.npz`）时才需要手工合并：
 
 ```bash
 python -m vllm_omni.diffusion.cache.sencache.calibrate merge \
   --inputs "/tmp/sen/cosmos3_nano_calib.*.npz" \
   --out /tmp/sen/cosmos3_nano_profile.npz
-
-python -m vllm_omni.diffusion.cache.sencache.calibrate inspect \
-  --profile /tmp/sen/cosmos3_nano_profile.npz
 ```
 
 检查项：
 
 - 曲线非负、有限，两端（t≈1000 与 t≈0）不出现异常尖峰；
-- `count` 覆盖大部分时间箱（空箱会被最近邻填充，边界处最明显）；
-- `alpha_t` 不应恒为 0；若恒为 0，说明探针没有真正改变 timestep（检查模型是否忽略 `timestep` 输入）。
+- `alpha_t` 不应恒为 0；若恒为 0，说明探针没有真正改变 timestep（检查模型是否忽略 `timestep` 输入）；
+- 占用箱数量与步数匹配即可（35 步 / 128 箱时约 27% 是正常的，不应据此判定失败）。
 
 ### 4.3 用 profile 跑 SenCache
 
 ```bash
 vllm serve nvidia/Cosmos3-Nano --omni --port 8000 --init-timeout 1800 \
   --cache-backend sen_cache \
-  --cache-config '{"sen_profile_path": "/tmp/sen/cosmos3_nano_profile.npz",
+  --cache-config '{"sen_profile_path": "/tmp/sen/cosmos3_nano_calib.npz",
                    "sen_threshold_start": 0.02,
                    "sen_threshold_main": 0.08,
                    "sen_start_fraction": 0.2,
                    "sen_max_consecutive_reuses": 2,
                    "sen_time_max": 1000.0}'
 ```
+
+标定产物本身同时包含原始累加器与 finalize 后的曲线，可以直接作为 `sen_profile_path`；如果你做了 §4.2 的手工 merge，则改用 merge 的输出路径。
 
 用 4.0 相同的 prompt / seed / 参数请求，保存 `sencache_<prompt>_<seed>.mp4`。
 
@@ -247,7 +262,7 @@ PY
 | `requires a sensitivity profile` | 没给 `sen_profile_path`，且未开 `sen_calibration_output` |
 | CFG/SP 多卡下 hang | 检查各 rank 的 latent/timestep 是否一致、SP 组是否初始化；SP 组内做 `MAX` 投票，CFG 组刻意不投票（避免不均衡 dispatch 死锁） |
 | `does not support FSDP/HSDP parameter sharding` | 关闭 `--enable-hsdp` / FSDP |
-| 标定不写文件 | 请求未带 `num_inference_steps`、请求被取消，或输出目录不可写；尝试先跑完整一条请求 |
+| 标定不写文件 | 请求未带 `num_inference_steps`、请求被取消、输出目录不可写，或与已有产物的 `model_id/boundary` 不一致导致合并失败（看 WARNING） |
 | 日志 `requires denoise step metadata` | pipeline 没暴露 `current_step_index`；Cosmos3 正常路径应该可用，检查是否被其它 wrapper 替换 |
 | `alpha_t` 全 0 | 探针的 timestep 未生效；确认 transformer 真正使用 `timestep` 参数 |
 | `skip_ratio` 始终 0 | profile 的 `alpha_*` 偏大或阈值偏小；先 `inspect`，再放大阈值 |
@@ -264,7 +279,7 @@ PY
 - `SenCache` 根 hook 是 `torch.compiler.disable` 的，且判定含 host 同步；不要与 `full` 编译或 CUDA/NPU graph 叠加验证。
 - layerwise offload 未验证：跳过 GEN stack 时被跳过层的 offload hook 不会触发，收益与状态需要单独测量。
 - CFG-parallel / SP 已放开但未做多卡实测；首次运行时建议把进程组超时调大，并观察是否在某个 step 挂住。
-- 标定在 CFG-parallel 下只由 `cfg_rank == 0` 执行；其余 rank 仍全算但不写产物，因此多卡标定产物只需要合并各 DP 副本 rank 0 的文件。
+- 标定在 CFG-parallel 下只由 `cfg_rank == 0` 记录；同一部署内所有记录进程在文件锁保护下合并到同一个 `.npz`。多节点部署需要共享文件系统，否则每个节点会各写一份。
 
 ---
 

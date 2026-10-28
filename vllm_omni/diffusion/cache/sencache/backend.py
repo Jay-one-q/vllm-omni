@@ -93,7 +93,8 @@ class SenCacheBackend(CacheBackend):
                 num_bins=sen_config.calibration_time_bins,
             )
             logger.info(
-                "SenCache calibration mode: every step runs full; artifacts will be written to %s.<pid>.npz",
+                "SenCache calibration mode: every step runs full; samples from all ranks "
+                "are merged into a single shared .npz under %s",
                 sen_config.calibration_output,
             )
         else:
