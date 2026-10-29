@@ -12,6 +12,7 @@ import torch
 from vllm_omni.diffusion.cache.sencache import (
     SenCacheBackend,
     SenCacheConfig,
+    SenCacheHook,
     SensitivityProfile,
     apply_sen_cache_hook,
 )
@@ -442,3 +443,192 @@ def test_backend_requires_profile_or_calibration() -> None:
     backend = SenCacheBackend(DiffusionCacheConfig())
     with pytest.raises(ValueError, match="sen_profile_path"):
         backend.enable(Cosmos3OmniDiffusersPipeline())
+
+
+class WanTransformer3DModel(torch.nn.Module):
+    """Tiny Wan-like transformer: monolithic forward, full-output caching."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stack_calls = 0
+        self.cfg_branch = None
+
+    def forward(
+        self,
+        hidden_states: torch.Tensor,
+        timestep: torch.Tensor,
+        encoder_hidden_states: torch.Tensor | None = None,
+        encoder_hidden_states_image: torch.Tensor | None = None,
+        intermediate_tensors: object | None = None,
+        return_dict: bool = True,
+        attention_kwargs: dict | None = None,
+    ):
+        del timestep, encoder_hidden_states_image, intermediate_tensors, return_dict, attention_kwargs
+        self.stack_calls += 1
+        offset = 0.0 if encoder_hidden_states is None else float(encoder_hidden_states.flatten()[0])
+        return (hidden_states * 2 + offset,)
+
+
+def _run_wan(
+    transformer: WanTransformer3DModel,
+    metadata: SimpleNamespace,
+    *,
+    step: int,
+    t: float,
+    value: float,
+    encoder: float = 0.0,
+):
+    metadata.step = step
+    with torch.inference_mode():
+        return transformer(
+            hidden_states=_latent(value),
+            timestep=torch.tensor([t]),
+            encoder_hidden_states=torch.tensor([encoder]),
+        )
+
+
+def _apply_wan(
+    transformer: WanTransformer3DModel,
+    *,
+    metadata: SimpleNamespace,
+    branch_state: dict[str, str] | None = None,
+) -> SenCacheHook:
+    return apply_sen_cache_hook(
+        transformer,
+        SenCacheConfig(threshold_start=1.0, threshold_main=1.0, max_consecutive_reuses=10),
+        _profile(0.0, 0.0),
+        current_step_callback=lambda: metadata.step,
+        num_steps_callback=lambda: metadata.num_steps,
+        branch_callback=(lambda: branch_state["branch"]) if branch_state is not None else None,
+    )
+
+
+def test_full_prediction_reuses_whole_output() -> None:
+    transformer = WanTransformer3DModel()
+    metadata = SimpleNamespace(step=0, num_steps=5)
+    hook = _apply_wan(transformer, metadata=metadata)
+
+    first = _run_wan(transformer, metadata, step=0, t=1000.0, value=1.0)
+    second = _run_wan(transformer, metadata, step=1, t=900.0, value=5.0)
+
+    assert transformer.stack_calls == 1
+    assert hook.state.full_count == 1
+    assert hook.state.skip_count == 1
+    assert torch.allclose(second[0], first[0])
+    assert torch.allclose(second[0], torch.full_like(second[0], 2.0))
+
+
+def test_full_prediction_keeps_branches_separate() -> None:
+    transformer = WanTransformer3DModel()
+    metadata = SimpleNamespace(step=0, num_steps=5)
+    branch_state = {"branch": "positive"}
+    hook = _apply_wan(transformer, metadata=metadata, branch_state=branch_state)
+
+    branch_state["branch"] = "positive"
+    _run_wan(transformer, metadata, step=0, t=1000.0, value=1.0, encoder=0.0)
+    branch_state["branch"] = "negative"
+    _run_wan(transformer, metadata, step=0, t=1000.0, value=1.0, encoder=10.0)
+
+    branch_state["branch"] = "positive"
+    positive = _run_wan(transformer, metadata, step=1, t=900.0, value=5.0, encoder=0.0)
+    branch_state["branch"] = "negative"
+    negative = _run_wan(transformer, metadata, step=1, t=900.0, value=5.0, encoder=10.0)
+
+    assert transformer.stack_calls == 2
+    assert hook.state.skip_count == 2
+    assert set(hook.state.branch_predictions) == {"cond", "uncond"}
+    assert torch.allclose(positive[0], torch.full_like(positive[0], 2.0))
+    assert torch.allclose(negative[0], torch.full_like(negative[0], 12.0))
+
+
+def test_branch_falls_back_to_call_order() -> None:
+    transformer = WanTransformer3DModel()
+    metadata = SimpleNamespace(step=0, num_steps=5)
+    hook = _apply_wan(transformer, metadata=metadata)
+
+    _run_wan(transformer, metadata, step=0, t=1000.0, value=1.0, encoder=0.0)
+    _run_wan(transformer, metadata, step=0, t=1000.0, value=1.0, encoder=10.0)
+    positive = _run_wan(transformer, metadata, step=1, t=900.0, value=5.0, encoder=0.0)
+    negative = _run_wan(transformer, metadata, step=1, t=900.0, value=5.0, encoder=10.0)
+
+    assert transformer.stack_calls == 2
+    assert torch.allclose(positive[0], torch.full_like(positive[0], 2.0))
+    assert torch.allclose(negative[0], torch.full_like(negative[0], 12.0))
+    assert set(hook.state.branch_predictions) == {"cond", "uncond"}
+
+
+def test_scalar_timestep_uses_max_for_i2v() -> None:
+    from vllm_omni.diffusion.cache.sencache.hook import _scalar_timestep
+
+    assert _scalar_timestep(torch.tensor([[0.0, 0.0, 500.0, 500.0]])) == 500.0
+
+
+class _ProbeRecorder(torch.nn.Module):
+    def __init__(self) -> None:
+        super().__init__()
+        self.seen: list[torch.Tensor] = []
+
+    def record(self, hidden_states: torch.Tensor, timestep: torch.Tensor, **kwargs) -> tuple[torch.Tensor]:
+        del kwargs
+        self.seen.append(timestep.clone())
+        return (hidden_states,)
+
+
+def test_probe_preserves_i2v_zero_timesteps() -> None:
+    hook = SenCacheHook(SenCacheConfig(), _profile(0.5, 0.5))
+    recorder = _ProbeRecorder()
+    recorder._omni_original_forward = recorder.record  # type: ignore[attr-defined]
+    current = torch.tensor([[700.0, 700.0, 0.0, 0.0]])
+    template = torch.tensor([[900.0, 900.0, 0.0, 0.0]])
+
+    hook._probe(
+        recorder,
+        {"timestep": current},
+        torch.zeros(1, 2, 2, 2, 2),
+        900.0,
+        timestep_template=template,
+    )
+
+    assert torch.equal(recorder.seen[-1], torch.tensor([[900.0, 900.0, 0.0, 0.0]]))
+
+
+def test_backend_denoise_step_falls_back_to_forward_context(monkeypatch) -> None:
+    from vllm_omni.diffusion import forward_context as forward_context_module
+    from vllm_omni.diffusion.cache.sencache import backend as backend_module
+
+    monkeypatch.setattr(forward_context_module, "is_forward_context_available", lambda: True)
+    monkeypatch.setattr(
+        forward_context_module,
+        "get_forward_context",
+        lambda: SimpleNamespace(denoise_step_idx=7),
+    )
+
+    assert backend_module._denoise_step(SimpleNamespace()) == 7
+
+
+class Wan22Pipeline:
+    def __init__(self) -> None:
+        self.transformer = WanTransformer3DModel()
+        self.transformer_2 = WanTransformer3DModel()
+        self._num_timesteps = 5
+
+    @property
+    def num_timesteps(self) -> int:
+        return self._num_timesteps
+
+
+def test_backend_hooks_both_wan_experts(tmp_path) -> None:
+    profile_path = tmp_path / "profile.npz"
+    _profile(0.5, 0.5).save(profile_path)
+    pipeline = Wan22Pipeline()
+    backend = SenCacheBackend(DiffusionCacheConfig(sen_profile_path=str(profile_path)))
+
+    backend.enable(pipeline)
+
+    assert len(backend.hooks) == 2
+    assert pipeline._sen_cache_hooks == backend.hooks
+    assert backend.hooks[0].state is not backend.hooks[1].state
+    assert not hasattr(pipeline, "_cache_context_factory")
+
+    backend.refresh(pipeline, num_inference_steps=7)
+    assert all(hook._num_steps == 7 for hook in backend.hooks)

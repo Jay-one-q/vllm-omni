@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 import torch
 
@@ -18,6 +19,10 @@ class SenCacheState:
     cond_no_control) because they all consume the same noisy latent for a given
     denoising step. Cached residuals are kept per branch because the denoiser
     output differs with the conditioning.
+
+    ``branch_predictions`` is used by the full-prediction mode (paper algorithm)
+    where the complete transformer output is cached per branch instead of a
+    block residual.
     """
 
     reference_latent: torch.Tensor | None = None
@@ -25,6 +30,7 @@ class SenCacheState:
     alpha_x: float = 0.0
     alpha_t: float = 0.0
     branch_residuals: dict[str, torch.Tensor] = field(default_factory=dict)
+    branch_predictions: dict[str, Any] = field(default_factory=dict)
     consecutive_reuses: int = 0
     full_count: int = 0
     skip_count: int = 0
@@ -38,6 +44,7 @@ class SenCacheState:
         self.alpha_x = 0.0
         self.alpha_t = 0.0
         self.branch_residuals.clear()
+        self.branch_predictions.clear()
         self.consecutive_reuses = 0
         self.full_count = 0
         self.skip_count = 0
@@ -56,3 +63,16 @@ class SenCacheState:
         if residual.shape != latent.shape or residual.device != latent.device or residual.dtype != latent.dtype:
             return None
         return residual
+
+    def prediction_for(self, branch: str, latent: torch.Tensor) -> Any | None:
+        """Return the cached full prediction for ``branch`` if it is still usable."""
+        prediction = self.branch_predictions.get(branch)
+        if prediction is None:
+            return None
+        tensors = prediction if isinstance(prediction, (tuple, list)) else (prediction,)
+        for item in tensors:
+            if not isinstance(item, torch.Tensor):
+                return None
+            if item.device != latent.device or item.dtype != latent.dtype:
+                return None
+        return prediction

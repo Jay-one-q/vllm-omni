@@ -1799,9 +1799,60 @@ def extract_cosmos3_context(
     )
 
 
+def extract_wan_context(
+    module: nn.Module,
+    hidden_states: torch.Tensor,
+    timestep: torch.Tensor,
+    encoder_hidden_states: torch.Tensor,
+    encoder_hidden_states_image: torch.Tensor | None = None,
+    intermediate_tensors: Any | None = None,
+    return_dict: bool = True,
+    attention_kwargs: dict[str, Any] | None = None,
+    **kwargs: Any,
+) -> CacheContext:
+    """Build a full-prediction context for Wan2.2.
+
+    Wan's forward is monolithic (patch embedding, blocks, unpatchify), so
+    blocking only the transformer stack would require splitting the model.
+    SenCache therefore caches the complete prediction per branch: the hook
+    returns the cached output on a hit and ``postprocess`` is the identity.
+    """
+    if kwargs:
+        raise TypeError(f"Unexpected Wan transformer kwargs: {sorted(kwargs)}")
+    if intermediate_tensors is not None:
+        raise RuntimeError("SenCache does not support Wan pipeline parallelism yet.")
+
+    call_kwargs = {
+        "hidden_states": hidden_states,
+        "timestep": timestep,
+        "encoder_hidden_states": encoder_hidden_states,
+        "encoder_hidden_states_image": encoder_hidden_states_image,
+        "intermediate_tensors": intermediate_tensors,
+        "return_dict": return_dict,
+        "attention_kwargs": attention_kwargs,
+    }
+
+    def run_full() -> tuple[Any, ...]:
+        return (module._omni_original_forward(**call_kwargs),)
+
+    return CacheContext(
+        modulated_input=hidden_states,
+        hidden_states=hidden_states,
+        encoder_hidden_states=encoder_hidden_states,
+        temb=timestep,
+        run_transformer_blocks=run_full,
+        postprocess=lambda output: output,
+        extra_states={
+            "sencache_latent": hidden_states,
+            "sencache_timestep": timestep,
+            "sencache_full_prediction": True,
+        },
+    )
+
+
 # Registry for model-specific extractors
 # Key: Transformer class name
-# Value: extractor function with signature (module, *args, **kwargs) -> CacheContext
+# Value: Extractor function with signature (module, *args, **kwargs) -> CacheContext
 #
 # Note: Use the transformer class name as specified in pipelines as TeaCache hooks operate
 # on the transformer module and multiple pipelines can share the same transformer.
@@ -1823,6 +1874,26 @@ EXTRACTOR_REGISTRY: dict[str, Callable] = {
     # Future models:
     # "CogVideoXTransformer3DModel": extract_cogvideox_context,
 }
+
+# SenCache-only extractors. Kept separate from EXTRACTOR_REGISTRY so TeaCache
+# and SeaCache keep rejecting models whose context only makes sense for
+# SenCache (Wan2.2 caches the full prediction instead of a block residual).
+SENCACHE_EXTRACTOR_REGISTRY: dict[str, Callable] = {
+    "WanTransformer3DModel": extract_wan_context,
+}
+
+
+def get_sencache_extractor(transformer_type: str | type) -> Callable:
+    """Resolve a SenCache extractor, falling back to the shared registry."""
+    candidate_names: tuple[str, ...]
+    if isinstance(transformer_type, str):
+        candidate_names = (transformer_type,)
+    else:
+        candidate_names = tuple(candidate.__name__ for candidate in transformer_type.__mro__)
+    for candidate_name in candidate_names:
+        if candidate_name in SENCACHE_EXTRACTOR_REGISTRY:
+            return SENCACHE_EXTRACTOR_REGISTRY[candidate_name]
+    return get_extractor(transformer_type)
 
 
 def register_extractor(transformer_cls_name: str, extractor_fn: Callable) -> None:

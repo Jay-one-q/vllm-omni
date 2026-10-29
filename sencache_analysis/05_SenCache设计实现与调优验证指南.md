@@ -9,12 +9,13 @@
 
 ## 0. 结论摘要
 
-1. SenCache 在本仓库是一个**实验性、单模型、请求级**的全前向缓存 backend：缓存边界是 Cosmos3 GEN stack（`_gen_preprocess` 之后、`_gen_postprocess` 之前）。
+1. SenCache 在本仓库是一个**实验性、请求级**的全前向缓存 backend：Cosmos3 缓存 GEN stack（`_gen_preprocess` 之后、`_gen_postprocess` 之前）；Wan2.2 缓存整段 transformer 预测。
 2. 判定不是在输出空间做差分，而是用**标定得到的敏感度曲线** `alpha_x(t)`、`alpha_t(t)` 预测"如果现在不跑，输出会变化多少"，再与阈值比较。因此它必须先生成 profile 才能推理。
 3. 决策量 `S = alpha_x(t_ref)·rms(x_t − x_ref) + alpha_t(t_ref)·|t − t_ref|`，物理量纲是**输出 RMS 变化**；阈值默认 `0.02/0.08` 只是占位，必须扫。
 4. 同一 denoising step 内的多个分支（cond / uncond / cond_no_control）**共享一次判定**，残差按分支独立保存；这是它相对 TeaCache 的关键差异，也是"CFG 下不被判两次"的原因。
 5. 未显式传 `num_inference_steps` 的请求**不会触发 refresh**（runner 的白名单不含 `sen_cache`），会造成跨请求状态残留与标定只写一次文件。这是当前最容易被忽略的运维约束，详见 §9.1。
 6. 收益只来自被跳过的 GEN stack；`preprocess/postprocess`（patchify、投影、norm、unpatchify）、文本编码、VAE 每步/每请求照常执行。端到端加速比的上限是 `1 / (1 − skip_ratio · T_stack/T_step)`。
+7. Wan2.2 T2V/I2V 已接入，但走的是**整模型输出缓存**（论文原算法），不拆分 transformer forward；双专家各挂一个 hook，共享一个标定累加器。详见 §5.7。
 
 ---
 
@@ -109,7 +110,7 @@ SenCache 的独特性在于"**先验曲线 + 在线位移**"：曲线来自标�
 | [backend.py](file:///c:/Users/jayQ/PycharmProjects/vllm-omni/vllm_omni/diffusion/cache/sencache/backend.py#L50-L150) | `SenCacheBackend` | pipeline 白名单、profile 加载/标定器构建、hook 安装、请求边界 refresh 与统计 |
 | [selector.py](file:///c:/Users/jayQ/PycharmProjects/vllm-omni/vllm_omni/diffusion/cache/selector.py#L52-L53) | `sen_cache` / `sencache` 路由 | 按名字构造 backend |
 | [data.py](file:///c:/Users/jayQ/PycharmProjects/vllm-omni/vllm_omni/diffusion/data.py#L608-L622) | `sen_*` 字段 | `--cache-config` 的用户面配置 |
-| [extractors.py](file:///c:/Users/jayQ/PycharmProjects/vllm-omni/vllm_omni/diffusion/cache/teacache/extractors.py#L1791-L1798) | `sencache_latent` / `sencache_timestep` | 暴露**原始**噪声 latent 与 timestep |
+| [extractors.py](file:///c:/Users/jayQ/PycharmProjects/vllm-omni/vllm_omni/diffusion/cache/teacache/extractors.py#L1791-L1850) | `sencache_latent` / `sencache_timestep` / `sencache_full_prediction` | Cosmos3 暴露原始 latent/timestep；Wan2.2 用 SenCache 专用注册表并提供整模型预测上下文 |
 | [serve.py](file:///c:/Users/jayQ/PycharmProjects/vllm-omni/vllm_omni/entrypoints/cli/serve.py#L833-L841) | `--cache-backend` help | 把 `sen_cache` 暴露给用户 |
 
 ### 2.2 调用链
@@ -431,6 +432,61 @@ SenCache request summary: full=.. skip=.. skip_ratio=.. (next steps=35)
 5. 再补 3~7 条标定 prompt（数据自动累加到同一文件），重新 `inspect`。
 6. 进入 §6 的扫参。
 
+### 5.7 Wan2.2（T2V / I2V）
+
+支持范围：`Wan22Pipeline`（T2V）与 `Wan22I2VPipeline`（I2V）。VACE / S2V / DMD2 暂不支持。
+
+#### 与其他模型的差异
+
+| 维度 | Cosmos3 | Wan2.2 |
+| --- | --- | --- |
+| 缓存对象 | GEN stack 残差 | **整段 transformer 预测**（论文原算法） |
+| 命中时执行 | preprocess + postprocess | 直接返回缓存输出，不跑任何前向 |
+| 边界标识 | `cosmos3.gen_stack` | `wan2_2.full_prediction` |
+| 分支名来源 | `pipeline._cache_context_factory` | `transformer.cfg_branch`（`CFGParallelMixin` 自动打标） |
+| 步号来源 | `pipeline.current_step_index` | forward context 的 `denoise_step_idx` |
+| 专家 | 单 transformer | `transformer` + `transformer_2`，各一个 hook |
+
+#### 双专家语义
+
+- 两个专家按 `boundary_ratio` 在时间上分工，同一 step 只有一个专家被调用，因此**每个 hook 各自维护参考点与缓存**是正确且必要的；
+- 两个 hook 共享**同一个标定累加器**：不同专家的样本落在不相交的时间箱，合并后正好构成完整曲线；最后一步由当前活跃的专家统一落盘；
+- 专家切换的那一次 transition 没有样本（新专家的 `_calibration_prev` 为空），属于可接受的单点缺失。
+
+#### I2V 细节
+
+- Wan I2V 会把 timestep 按 patch 展开，条件帧位置填 0。门控取 `max(timestep)`，避免把 0 当成当前步；
+- 标定探针只替换非零位置，保留 0 掩码（`_probe` 的 `timestep_template`），否则 `alpha_t` 会被估成 0。
+
+#### 使用命令
+
+与 Cosmos3 相同，只换模型和 profile：
+
+```bash
+vllm serve Wan-AI/Wan2.2-T2V-A14B --omni --port 8000 \
+  --cache-backend sen_cache \
+  --cache-config '{"sen_calibration_output": "/tmp/sen/wan22_calib"}'
+```
+
+拿到 profile 后：
+
+```bash
+vllm serve Wan-AI/Wan2.2-T2V-A14B --omni --port 8000 \
+  --cache-backend sen_cache \
+  --cache-config '{"sen_profile_path": "/tmp/sen/wan22_calib.npz",
+                   "sen_time_max": 1000.0,
+                   "sen_threshold_start": 0.02,
+                   "sen_threshold_main": 0.08,
+                   "sen_max_consecutive_reuses": 2}'
+```
+
+注意：
+
+- `sen_time_max=1000` 对 Wan 的 scheduler（`num_train_timesteps=1000`）成立；
+- Cosmos3 的 profile、阈值不能用于 Wan，必须重新标定与扫参；
+- 整模型输出缓存的近似比块级残差更粗，同等阈值下画质可能更差，需要重新确定质量预算；
+- PP（pipeline parallel）在启动时直接拒绝；FSDP/HSDP 同样拒绝。
+
 ---
 
 ## 6. 调参调优
@@ -525,6 +581,13 @@ sen_calibration_time_bins = 32
 | `test_calibration_merges_into_one_artifact` | 两个"worker"写同一路径时累加而非覆盖 |
 | `test_calibration_accumulates_across_requests` | 同一进程多请求自动累加 |
 | `test_profile_issues_flags_degenerate_curves` | `alpha_x`/`alpha_t` 全 0 的语义检查 |
+| `test_full_prediction_reuses_whole_output` | Wan 整模型输出复用 |
+| `test_full_prediction_keeps_branches_separate` | 整输出模式下 cond/uncond 缓存隔离 |
+| `test_branch_falls_back_to_call_order` | 无分支标记时按调用顺序区分 cond/uncond |
+| `test_scalar_timestep_uses_max_for_i2v` | I2V 下门控取最大 timestep |
+| `test_probe_preserves_i2v_zero_timesteps` | 标定探针保留 I2V 的 0 掩码 |
+| `test_backend_denoise_step_falls_back_to_forward_context` | Wan 无 `current_step_index` 时从 forward context 取步号 |
+| `test_backend_hooks_both_wan_experts` | 双专家各挂 hook、状态独立、共享 refresh |
 | `test_merge_calibration_artifacts` | 跨产物均值 |
 | `test_backend_enable_and_refresh` | backend 生命周期与 `_cache_context_factory` |
 | `test_backend_allows_cfg_parallel` | CFG-parallel 放行 |
@@ -641,12 +704,17 @@ runner 的 refresh 流程在无法从请求解析步数（`num_inference_steps`�
 
 ### 9.7 其它已知边界
 
-- 仅 Cosmos3；其它模型需 expose `sencache_latent`/`sencache_timestep`，并加入 backend 白名单、重新标定。
+- 支持 Cosmos3（块级残差）与 Wan2.2 T2V/I2V（整模型输出）；其它模型需 expose `sencache_latent`/`sencache_timestep`，并加入 backend 白名单、重新标定。
+- Wan 的 VACE / S2V / DMD2 未接入；S2V 有多模态输出与 block 级音频注入，需要单独的 extractor 与状态设计。
+- Wan 整模型输出缓存不执行 `pre/post`，命中时收益更大，但同等阈值下画质通常不如块级残差；阈值与质量预算必须单独标定。
+- Wan 双专家在切换点缺一个 transition 样本；若标定曲线在 boundary 附近异常，可把该点视为空箱（最近邻填充）。
+- 若只用低噪声专家（`boundary_ratio=1.0`，`transformer` 未加载）且开启 CFG，`cfg_branch` 不会被标记；此时回退到"按调用顺序区分分支"，依赖 cond 先于 uncond 的调度假设。
 - 标定只取 video；joint audio/action 的质量与同步未纳入判据。
-- I2V/transfer 的探针只扰动 `hidden_states`，固定 controls；可用但未验证。
+- I2V 的探针只扰动 `hidden_states`（Wan 通过 timestep 模板保留 0 掩码）；其它 control 条件固定。
 - layerwise offload 未验证：跳过 GEN stack 时被跳过层的 offload hook 不触发，收益与状态需单独测量。
 - 与 CUDA/NPU graph、`full` 编译不应叠加；`regional` 需单独 A/B。
 - `torch.compiler.disable` 的根 hook + 数据相关分支决定了它不可能进入编译图。
+- Wan 的 PP 在启动时拒绝；SP/CFG-parallel 可用但未做多卡实测。
 
 ---
 
@@ -709,4 +777,8 @@ runner 的 refresh 流程在无法从请求解析步数（`num_inference_steps`�
   3) 单卡标定，多卡推理；多节点标定需共享文件系统
   4) eager 或 regional，不要 full compile
   5) 不看 skip_ratio 单项，看 (skip_ratio, SSIM, PSNR, P50) 四元组
+
+Wan2.2：
+  支持 Wan22Pipeline / Wan22I2VPipeline；整模型输出缓存；
+  双专家各挂 hook、共享一个标定累加器；profile 必须单独标定。
 ```

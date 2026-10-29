@@ -31,7 +31,7 @@ from vllm_omni.diffusion.cache.sencache.calibrate import (
 from vllm_omni.diffusion.cache.sencache.config import SenCacheConfig
 from vllm_omni.diffusion.cache.sencache.profile import SensitivityProfile
 from vllm_omni.diffusion.cache.sencache.state import SenCacheState
-from vllm_omni.diffusion.cache.teacache.extractors import CacheContext, get_extractor
+from vllm_omni.diffusion.cache.teacache.extractors import CacheContext, get_sencache_extractor
 from vllm_omni.diffusion.distributed.parallel_state import (
     get_sp_group,
     model_parallel_is_initialized,
@@ -42,6 +42,7 @@ logger = init_logger(__name__)
 
 _LATENT_KEY = "sencache_latent"
 _TIMESTEP_KEY = "sencache_timestep"
+_FULL_PREDICTION_KEY = "sencache_full_prediction"
 
 
 def _cfg_group_info() -> tuple[int, int]:
@@ -87,6 +88,26 @@ def _rms(tensor: torch.Tensor) -> float:
     return float(tensor.detach().float().pow(2).mean().sqrt())
 
 
+def _scalar_timestep(timestep: torch.Tensor) -> float:
+    """Largest timestep in the tensor.
+
+    I2V expands the timestep per patch and keeps zero for conditioned frames,
+    so ``flatten()[0]`` can be a padding value instead of the denoising step.
+    """
+    return float(timestep.detach().max().item())
+
+
+def _detach_output(output: Any) -> Any:
+    """Detach a full transformer output while preserving its container type."""
+    if isinstance(output, tuple):
+        return tuple(_detach_output(item) for item in output)
+    if isinstance(output, list):
+        return [_detach_output(item) for item in output]
+    if isinstance(output, torch.Tensor):
+        return output.detach()
+    return output
+
+
 def _per_sample_rms_max(tensor: torch.Tensor) -> float:
     flat = tensor.detach().float().flatten(1)
     return float(flat.pow(2).mean(dim=1).sqrt().max())
@@ -112,6 +133,7 @@ class SenCacheHook(ModelHook):
         *,
         current_step_callback: Callable[[], int | None] | None = None,
         num_steps_callback: Callable[[], int | None] | None = None,
+        branch_callback: Callable[[], str | None] | None = None,
         extractor_fn: Callable[..., CacheContext] | None = None,
         calibrator: ProfileAccumulator | None = None,
         calibration_output: str | None = None,
@@ -121,11 +143,14 @@ class SenCacheHook(ModelHook):
         self.profile = profile
         self.current_step_callback = current_step_callback
         self.num_steps_callback = num_steps_callback
+        self.branch_callback = branch_callback
         self.extractor_fn = extractor_fn
         self.calibrator = calibrator
         self.calibration_output = calibration_output
         self.state = SenCacheState()
         self._active_branch: str | None = None
+        self._branch_step: int | None = None
+        self._branch_calls = 0
         self._num_steps: int | None = None
         self._warned: set[str] = set()
         self._calibration_prev: dict[str, Any] | None = None
@@ -135,7 +160,7 @@ class SenCacheHook(ModelHook):
     # ------------------------------------------------------------------ setup
     def initialize_hook(self, module: torch.nn.Module) -> torch.nn.Module:
         if self.extractor_fn is None:
-            self.extractor_fn = get_extractor(type(module))
+            self.extractor_fn = get_sencache_extractor(type(module))
         if _is_parameter_sharded(module):
             raise RuntimeError(
                 "SenCache does not support FSDP/HSDP parameter sharding yet; "
@@ -161,6 +186,8 @@ class SenCacheHook(ModelHook):
         self.state.reset()
         self._calibration_prev = None
         self._calibration_done = False
+        self._branch_step = None
+        self._branch_calls = 0
         if num_inference_steps is not None:
             self._num_steps = int(num_inference_steps)
 
@@ -196,22 +223,40 @@ class SenCacheHook(ModelHook):
             return ctx.postprocess(self._run_full(ctx))
 
         num_steps = self._resolve_num_steps()
-        t_value = float(timestep.detach().flatten()[0].item())
+        t_value = _scalar_timestep(timestep)
         if not math.isfinite(t_value):
             self._warn_once("SenCache received a non-finite timestep; running the full stack.")
             return ctx.postprocess(self._run_full(ctx))
 
-        branch = self._active_branch or "cond"
+        branch = self._resolve_branch(step)
         calibrating = self.calibrator is not None
+        full_prediction = bool(extra.get(_FULL_PREDICTION_KEY, False))
 
         if calibrating:
             # Calibration needs exact reference outputs, so never skip.
             prediction = ctx.postprocess(self._run_full(ctx))
-            self._record_calibration(module, kwargs, step, num_steps, latent, t_value, prediction)
+            self._record_calibration(module, kwargs, step, num_steps, latent, timestep, t_value, prediction)
             self._refresh_reference(step, latent, t_value)
             return prediction
 
         should_compute = self._resolve_gate(step, num_steps, latent, t_value)
+
+        if full_prediction:
+            cached_prediction = self.state.prediction_for(branch, latent)
+            if not should_compute and cached_prediction is not None:
+                self.state.skip_count += 1
+                return cached_prediction
+            output = self._run_full(ctx)
+            self.state.branch_predictions[branch] = _detach_output(output)
+            self.state.full_count += 1
+            if should_compute:
+                self._refresh_reference(step, latent, t_value)
+            else:
+                self._warn_once(f"SenCache had no cached prediction for branch {branch!r}; running full.")
+                self.state.reference_latent = None
+                self.state.reference_timestep = None
+            return ctx.postprocess(output)
+
         cached_residual = self.state.residual_for(branch, ctx.hidden_states)
         if not should_compute and cached_residual is not None:
             self.state.skip_count += 1
@@ -230,6 +275,36 @@ class SenCacheHook(ModelHook):
             self.state.reference_latent = None
             self.state.reference_timestep = None
         return ctx.postprocess(output)
+
+    def _resolve_branch(self, step: int) -> str:
+        """Return the residual/cache bucket for the current transformer call.
+
+        Pipelines that install ``_cache_context_factory`` set ``_active_branch``
+        explicitly. For pipelines that only stamp ``transformer.cfg_branch``
+        (e.g. Wan2.2), map the CFG branch name onto the cache bucket. If neither
+        is available, fall back to call order within the step (conditional
+        first, unconditional second), which is how CFG pipelines dispatch.
+        """
+        if self._active_branch is not None:
+            self._branch_step = None
+            self._branch_calls = 0
+            return self._active_branch
+        if self.branch_callback is not None:
+            try:
+                value = self.branch_callback()
+            except Exception:
+                value = None
+            if value is not None:
+                self._branch_step = None
+                self._branch_calls = 0
+                name = str(value)
+                return {"positive": "cond", "negative": "uncond"}.get(name, name)
+        if self._branch_step != step:
+            self._branch_step = step
+            self._branch_calls = 0
+        index = self._branch_calls
+        self._branch_calls += 1
+        return "cond" if index == 0 else "uncond"
 
     # ------------------------------------------------------------------ helpers
     def _run_full(self, ctx: CacheContext) -> torch.Tensor:
@@ -335,8 +410,9 @@ class SenCacheHook(ModelHook):
         step: int,
         num_steps: int,
         latent: torch.Tensor,
+        timestep: torch.Tensor,
         t_value: float,
-        output: torch.Tensor,
+        output: Any,
     ) -> None:
         if self.calibrator is None or self._calibration_done:
             return
@@ -353,6 +429,7 @@ class SenCacheHook(ModelHook):
         if previous is not None and previous["step"] == step - 1:
             prev_latent = previous["latent"]
             prev_t = previous["timestep"]
+            prev_timestep_tensor = previous["timestep_tensor"]
             prev_video = previous["video"]
             if prev_latent.shape == latent.shape and prev_video.shape == video.shape:
                 try:
@@ -361,10 +438,14 @@ class SenCacheHook(ModelHook):
                     alpha_x = None
                     alpha_t = None
                     if dx_rms > 1e-12:
-                        probe_x = self._probe(module, kwargs, latent, prev_t)
+                        probe_x = self._probe(
+                            module, kwargs, latent, prev_t, timestep_template=prev_timestep_tensor
+                        )
                         alpha_x = _rms(probe_x - prev_video) / dx_rms
                     if dt > 1e-12:
-                        probe_t = self._probe(module, kwargs, prev_latent, t_value)
+                        probe_t = self._probe(
+                            module, kwargs, prev_latent, t_value, timestep_template=timestep
+                        )
                         alpha_t = _rms(probe_t - prev_video) / dt
                     self.calibrator.add(prev_t, alpha_x, alpha_t)
                 except Exception as error:  # calibration must never break serving
@@ -374,6 +455,7 @@ class SenCacheHook(ModelHook):
             "step": step,
             "latent": latent.detach().clone(),
             "timestep": t_value,
+            "timestep_tensor": timestep.detach().clone(),
             "video": video,
         }
         if num_steps > 0 and step >= num_steps - 1:
@@ -385,12 +467,20 @@ class SenCacheHook(ModelHook):
         kwargs: dict[str, Any],
         latent: torch.Tensor,
         timestep_value: float,
+        *,
+        timestep_template: torch.Tensor | None = None,
     ) -> torch.Tensor:
         probe_kwargs = dict(kwargs)
         probe_kwargs["hidden_states"] = latent
         current = probe_kwargs.get("timestep")
         if isinstance(current, torch.Tensor):
-            probe_kwargs["timestep"] = torch.full_like(current, timestep_value)
+            base = timestep_template if isinstance(timestep_template, torch.Tensor) else current
+            if base.ndim > 1 and bool((base == 0).any()):
+                # I2V expands the timestep per patch and keeps zero for
+                # conditioned frames; only the noisy positions move.
+                probe_kwargs["timestep"] = base.masked_fill(base != 0, timestep_value)
+            else:
+                probe_kwargs["timestep"] = torch.full_like(current, timestep_value)
         else:
             probe_kwargs["timestep"] = torch.tensor(
                 [timestep_value], device=latent.device, dtype=torch.float32
@@ -407,14 +497,14 @@ class SenCacheHook(ModelHook):
         return f"{base}.npz"
 
     def _reset_accumulator(self) -> None:
-        """Start a fresh per-request accumulator after a successful merge."""
+        """Drop this request's samples after a successful merge.
+
+        Cleared in place so several hooks (e.g. Wan2.2 experts) can share one
+        accumulator instance.
+        """
         if self.calibrator is None:
             return
-        self.calibrator = ProfileAccumulator(
-            time_max=self.calibrator.time_max,
-            metadata=dict(self.calibrator.metadata),
-            num_bins=self.calibrator.num_bins,
-        )
+        self.calibrator.clear()
 
     def _write_calibration(self) -> None:
         if self.calibrator is None or self._calibration_path is None or self._calibration_done:
@@ -454,6 +544,7 @@ def apply_sen_cache_hook(
     *,
     current_step_callback: Callable[[], int | None] | None = None,
     num_steps_callback: Callable[[], int | None] | None = None,
+    branch_callback: Callable[[], str | None] | None = None,
     extractor_fn: Callable[..., CacheContext] | None = None,
     calibrator: ProfileAccumulator | None = None,
     calibration_output: str | None = None,
@@ -465,6 +556,7 @@ def apply_sen_cache_hook(
         profile,
         current_step_callback=current_step_callback,
         num_steps_callback=num_steps_callback,
+        branch_callback=branch_callback,
         extractor_fn=extractor_fn,
         calibrator=calibrator,
         calibration_output=calibration_output,

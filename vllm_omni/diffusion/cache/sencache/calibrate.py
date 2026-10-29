@@ -96,6 +96,17 @@ class ProfileAccumulator:
             self.alpha_t_sum[index] += alpha_t
         self.count[index] += 1.0
 
+    def clear(self) -> None:
+        """Drop accumulated samples while keeping the time grid and metadata.
+
+        Cleared in place so several hooks (e.g. Wan2.2 experts) can share one
+        accumulator instance.
+        """
+        assert self.alpha_x_sum is not None and self.alpha_t_sum is not None and self.count is not None
+        self.alpha_x_sum.fill(0.0)
+        self.alpha_t_sum.fill(0.0)
+        self.count.fill(0.0)
+
     def merge(self, other: ProfileAccumulator) -> None:
         if abs(self.time_max - other.time_max) > 1e-9 or self.num_bins != other.num_bins:
             raise ValueError("Cannot merge sensitivity profiles with different time grids")
